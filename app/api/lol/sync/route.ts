@@ -3,33 +3,40 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-const RIOT_API_KEY = process.env.RIOT_API_KEY;
-
 export async function POST(request: Request) {
+  // Inicializamos el cliente dentro de la función para evitar errores en el build
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const riotApiKey = process.env.RIOT_API_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return NextResponse.json({ error: 'Missing Supabase configuration' }, { status: 500 });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const { userId, puuid, region } = await request.json();
 
   try {
     const { data: profile } = await supabase.from('profiles').select('riot_linked_at').eq('id', userId).single();
     const cluster = region === 'EUW' ? 'europe' : 'americas';
     
-    const matchesRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=20&api_key=${RIOT_API_KEY}`);
+    const matchesRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=20&api_key=${riotApiKey}`);
     const matchIds = await matchesRes.json();
 
     let processedCount = 0;
 
     for (const mId of matchIds) {
-      const mRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/${mId}?api_key=${RIOT_API_KEY}`);
+      const mRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/${mId}?api_key=${riotApiKey}`);
       const mData = await mRes.json();
+
+      if (!mData.info) continue;
 
       const gameEndTime = mData.info.gameEndTimestamp;
       const linkedAtTime = new Date(profile.riot_linked_at).getTime();
 
-      // FILTRO: Solo partidas después de vincularse
       if (gameEndTime > linkedAtTime) {
         const p = mData.info.participants.find((part: any) => part.puuid === puuid);
         if (p) {
-          // LLAMADA AL RPC DE SQL
           await supabase.rpc('sync_match_stats', {
             p_user_id: userId,
             p_match_id: mId,
@@ -44,7 +51,7 @@ export async function POST(request: Request) {
             p_dmg_structs: p.damageDealtToTurrets,
             p_dmg_objs: p.damageDealtToObjectives,
             p_nashors: p.baronKills,
-            p_heralds: p.firstTowerKill ? 1 : 0, // Ejemplo, Riot tiene IDs específicos para monstruos
+            p_heralds: p.firstTowerKill ? 1 : 0,
             p_voidgrubs: p.challenges?.hordeKills || 0,
             p_elders: p.challenges?.elderDragonKillsWithOpposingSoul || 0,
             p_infernal: p.challenges?.infernalDragonKills || 0,
