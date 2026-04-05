@@ -1,5 +1,20 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Setup
+
+### Riot Games API Key
+
+Para que funcione la integración con League of Legends, necesitas una API Key de Riot Games:
+
+1. Ve a [https://developer.riotgames.com/](https://developer.riotgames.com/)
+2. Crea una cuenta o inicia sesión
+3. Crea una nueva aplicación
+4. Copia la API Key generada
+5. Crea un archivo `.env.local` en la raíz del proyecto
+6. Agrega: `RIOT_API_KEY=tu_api_key_aqui`
+
+**⚠️ Importante:** Las API Keys de Riot expiran cada 24 horas. Si ves errores 403, genera una nueva.
+
 ## Getting Started
 
 First, run the development server:
