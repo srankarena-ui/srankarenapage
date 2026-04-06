@@ -8,7 +8,6 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Versión de los assets de Riot (puedes actualizarla cuando salgan parches nuevos)
   const RIOT_PATCH = "14.8.1"; 
 
   useEffect(() => {
@@ -51,16 +50,13 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
     </div>
   );
 
-  // --- PROCESAMIENTO DE DATOS ---
   const matches = Array.isArray(data.matches) ? data.matches : [];
   const getP = (m: any) => m?.info?.participants?.find((p: any) => p.puuid === resolvedParams.puuid);
 
-  // Rangos
   const rankData = Array.isArray(data.rank) ? data.rank : [];
   const soloRank = rankData.find((r: any) => r.queueType === "RANKED_SOLO_5x5");
   const flexRank = rankData.find((r: any) => r.queueType === "RANKED_FLEX_SR");
 
-  // Estadísticas de las últimas 20 partidas
   let kills = 0, deaths = 0, assists = 0, wins = 0;
   let doubles = 0, triples = 0, quadras = 0, pentas = 0;
 
@@ -89,7 +85,6 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
     <main className="min-h-screen bg-[#111111] text-gray-300 p-4 md:p-8 font-sans">
       <div className="max-w-5xl mx-auto space-y-6">
         
-        {/* CABECERA DEL PERFIL */}
         <div className="bg-[#1e1e1e] rounded-lg p-6 flex flex-col md:flex-row items-center gap-6 border border-gray-800 shadow-lg">
           <div className="relative">
             <img 
@@ -103,7 +98,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
           </div>
           <div className="text-center md:text-left">
             <h1 className="text-3xl font-bold text-white mb-1">
-              {data.summoner?.name || "Invocador"} <span className="text-gray-500 text-xl font-normal">#{data.region}</span>
+              {data.summoner?.name} <span className="text-gray-500 text-xl font-normal">#{data.region}</span>
             </h1>
             <button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-4 rounded transition">
               Actualizar Datos
@@ -112,20 +107,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* COLUMNA IZQUIERDA: RANGOS */}
           <div className="space-y-4">
-
-            {/* MODO DEBUG ULTRA - ESTO NOS DARÁ LA RESPUESTA */}
-            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg overflow-x-auto text-xs text-red-200">
-              <p className="font-bold text-red-400 mb-1">🔍 OBJETO SUMMONER COMPLETO:</p>
-              <pre>{JSON.stringify(data.summoner, null, 2)}</pre>
-              <p className="font-bold text-red-400 mt-3 mb-1">🔗 PUUID LEÍDO POR NEXTJS:</p>
-              <pre>{resolvedParams.puuid}</pre>
-            </div>
-            {/* FIN DEBUG */}
-
-            {/* Solo/Duo */}
             <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800">
               <h3 className="text-gray-400 text-sm mb-3">Clasificatoria Solo/Dúo</h3>
               {soloRank ? (
@@ -144,7 +126,6 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
               )}
             </div>
 
-            {/* Flex */}
             <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800">
               <h3 className="text-gray-400 text-sm mb-3">Clasificatoria Flexible</h3>
               {flexRank ? (
@@ -164,10 +145,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
             </div>
           </div>
 
-          {/* COLUMNA DERECHA: PARTIDAS Y ESTADÍSTICAS */}
           <div className="lg:col-span-2 space-y-4">
-            
-            {/* Resumen 20 partidas */}
             <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800 flex flex-col md:flex-row gap-6 items-center md:justify-between">
               <div className="text-center md:text-left">
                 <p className="text-sm text-gray-400 mb-1">{totalGames} Partidas Recientes</p>
@@ -190,7 +168,6 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
               </div>
             </div>
 
-            {/* Lista de Partidas */}
             <div className="space-y-2">
               {matches.map((m: any, idx: number) => {
                 const p = getP(m);
@@ -203,15 +180,12 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
 
                 return (
                   <div key={idx} className={`flex items-center gap-4 p-3 rounded-md border-l-4 ${isWin ? 'bg-[#28344e] border-blue-500' : 'bg-[#59343b] border-red-500'}`}>
-                    
-                    {/* Tiempos y Modo */}
                     <div className="w-20 text-xs text-gray-300">
                       <p className={`font-bold ${isWin ? 'text-blue-400' : 'text-red-400'}`}>{isWin ? 'Victoria' : 'Derrota'}</p>
                       <p>{m.info.gameMode}</p>
                       <p className="text-gray-400">{gameMinutes} min</p>
                     </div>
 
-                    {/* Campeón y Hechizos */}
                     <div className="flex items-center gap-2">
                       <img 
                         src={`https://ddragon.leagueoflegends.com/cdn/${RIOT_PATCH}/img/champion/${p.championName}.png`} 
@@ -220,13 +194,11 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
                       />
                     </div>
 
-                    {/* KDA */}
                     <div className="flex-1 text-center">
                       <p className="text-lg font-bold text-white">{p.kills} / <span className="text-red-400">{p.deaths}</span> / {p.assists}</p>
                       <p className="text-xs text-gray-400">{matchKDA}:1 KDA</p>
                     </div>
 
-                    {/* CS y MultiKills */}
                     <div className="w-24 text-right text-xs text-gray-300 hidden md:block">
                       <p>CS {cs} ({((cs) / gameMinutes).toFixed(1)})</p>
                       {p.pentaKills > 0 && <span className="bg-yellow-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Penta</span>}
@@ -234,7 +206,6 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
                       {p.tripleKills > 0 && p.quadraKills === 0 && p.pentaKills === 0 && <span className="bg-green-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Triple</span>}
                       {p.doubleKills > 0 && p.tripleKills === 0 && p.quadraKills === 0 && p.pentaKills === 0 && <span className="bg-red-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Doble</span>}
                     </div>
-
                   </div>
                 );
               })}
