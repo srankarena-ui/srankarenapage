@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// CRÍTICO: Esto obliga a Vercel a no guardar en caché esta respuesta jamás.
+// CRÍTICO: Evita que Vercel guarde caché viejo
 export const dynamic = 'force-dynamic'; 
 
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
@@ -58,28 +58,20 @@ export async function GET(
     );
     const validMatches = matchDetails.filter(m => m !== null);
 
-    // 3. EL TRUCO: Extraemos el ID faltante de Riot desde la última partida
-    let realSummonerId = summData.id;
-    if (!realSummonerId && validMatches.length > 0) {
-        const p = validMatches[0].info.participants.find((part: any) => part.puuid === puuid);
-        if (p && p.summonerId) realSummonerId = p.summonerId;
-    }
-
-    // 4. Obtener el Rango con el ID extraído
+    // 3. OBTENER RANGO (LA SOLUCIÓN DEFINITIVA USANDO LA NUEVA RUTA BY-PUUID)
+    const leagueUrl = `https://${platform}.api.riotgames.com/lol/league/v4/entries/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`;
+    const leagueRes = await fetch(leagueUrl, { cache: 'no-store' });
+    
     let leagueData = [];
-    let debugObj = { realSummonerId: realSummonerId || "N/A", status: "No ID to fetch" };
-
-    if (realSummonerId) {
-        const leagueUrl = `https://${platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${realSummonerId}?api_key=${RIOT_API_KEY}`;
-        const leagueRes = await fetch(leagueUrl, { cache: 'no-store' });
-        debugObj.status = leagueRes.status.toString();
-        if (leagueRes.ok) {
-            leagueData = await leagueRes.json();
-        } else {
-            debugObj.status += " " + await leagueRes.text();
-        }
+    let debugObj = { status: leagueRes.status.toString(), type: "by-puuid" };
+    
+    if (leagueRes.ok) {
+        leagueData = await leagueRes.json();
+    } else {
+        debugObj.status += " " + await leagueRes.text();
     }
 
+    // 4. Obtener Maestría
     const masteryRes = await fetch(`https://${platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=5&api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
     const masteryData = masteryRes.ok ? await masteryRes.json() : [];
 
