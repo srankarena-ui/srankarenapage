@@ -15,7 +15,6 @@ const LinkIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="non
 const TrashIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>;
 const UserIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
 const TrophyIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>;
-const SettingsIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
 const ScanIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.5-1.5"/></svg>;
 const GenerateIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275z"/></svg>;
 
@@ -287,17 +286,6 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     setSeedingSlot(null); refreshBracket();
   };
 
-  const fillWithDummies = async () => {
-    if (!isAdmin || !tournament) return;
-    const maxP = tournament.max_participants || 16;
-    const canAdd = maxP - participants.length;
-    if (canAdd <= 0) return alert("Arena Full.");
-    const newDummies = Array.from({ length: Math.min(dummyToAddCount, canAdd) }).map(() => ({ id: crypto.randomUUID(), username: `Dummy_${Math.floor(Math.random() * 90000)}`, rank: "IRON", role: "usuario", is_dummy: true }));
-    await supabase.from("profiles").insert(newDummies);
-    await supabase.from("tournament_participants").insert(newDummies.map(d => ({ tournament_id: tournament.id, user_id: d.id })));
-    refreshBracket();
-  };
-
   // ==========================================
   // LA MAGIA DE RIOT (SCANNER AUTOMÁTICO Y FRANCOTIRADOR)
   // ==========================================
@@ -357,24 +345,44 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       setScoreModal({ match, p1Score: match.player1_score || 0, p2Score: match.player2_score || 0 });
     };
 
-    const renderPlayer = (p: any, score: number, isWinner: boolean, side: 1|2) => (
-      <div className={`p-4 flex justify-between items-center ${isWinner ? 'bg-purple-600/20' : ''}`}>
-        <div className="flex flex-col truncate pr-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); isAdmin && !isFinished && setSeedingSlot({ matchId: match.id, playerSide: side }); }}>
-          {/* AQUÍ SE MUESTRA EL RIOT ID#TAG Y ABAJO EL USUARIO */}
-          <span className={`text-[12px] font-black uppercase italic ${isWinner ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}>
-            {p?.riot_game_name ? `${p.riot_game_name}#${p.riot_tagline || 'LAN'}` : p?.username || "--- TBD ---"}
-          </span>
-          {p?.riot_game_name && <span className="text-[9px] text-gray-500 font-bold uppercase -mt-1">{p.username}</span>}
+    // FUNCIÓN DE RENDERIZADO DEL JUGADOR PARA MOSTRAR EL PUUID O NOMBRE
+    const renderPlayer = (p: any, score: number, isWinner: boolean, side: 1|2) => {
+      let displayName = "--- TBD ---";
+      let subText = "SIN VINCULAR";
+
+      if (p) {
+         if (p.riot_game_name) {
+            displayName = `${p.riot_game_name}#${p.riot_tagline || 'LAN'}`;
+            subText = p.username;
+         } else if (p.riot_puuid) {
+            // SI NO HAY NOMBRE GUARDADO PERO SÍ HAY PUUID, LO MOSTRAMOS PARA DEBUGEAR
+            displayName = p.username;
+            subText = `PUUID: ${p.riot_puuid.substring(0, 12)}...`;
+         } else {
+            displayName = p.username;
+         }
+      }
+
+      return (
+        <div className={`p-4 flex justify-between items-center ${isWinner ? 'bg-purple-600/20' : ''}`}>
+          <div className="flex flex-col truncate pr-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); isAdmin && !isFinished && setSeedingSlot({ matchId: match.id, playerSide: side }); }}>
+            <span className={`text-[12px] font-black uppercase italic ${isWinner ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}>
+              {displayName}
+            </span>
+            <span className={`text-[9px] font-bold uppercase -mt-1 ${p?.riot_puuid && !p?.riot_game_name ? 'text-green-500' : 'text-gray-500'}`}>
+              {subText}
+            </span>
+          </div>
+          <button 
+            onClick={openScoreModal} 
+            disabled={!isAdmin || isFinished || (!p1 && !p2)} 
+            className={`w-10 h-10 rounded-lg flex items-center justify-center font-black text-base transition-all relative z-10 ${isFinished || !isAdmin ? 'bg-gray-900 text-gray-500 cursor-default' : 'bg-gray-950 text-white border-2 border-gray-700 hover:border-purple-500 hover:bg-purple-900/30 cursor-pointer shadow-inner'}`}
+          >
+            {score || 0}
+          </button>
         </div>
-        <button 
-          onClick={openScoreModal} 
-          disabled={!isAdmin || isFinished || (!p1 && !p2)} 
-          className={`w-10 h-10 rounded-lg flex items-center justify-center font-black text-base transition-all relative z-10 ${isFinished || !isAdmin ? 'bg-gray-900 text-gray-500 cursor-default' : 'bg-gray-950 text-white border-2 border-gray-700 hover:border-purple-500 hover:bg-purple-900/30 cursor-pointer shadow-inner'}`}
-        >
-          {score || 0}
-        </button>
-      </div>
-    );
+      );
+    };
 
     return (
       <Seed mobileBreakpoint={breakpoint} style={{ fontSize: 12 }}>
@@ -600,6 +608,8 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                         </div>
                         <div className="flex flex-col">
                            <span className="font-black text-white uppercase italic tracking-tighter text-lg">{p.profiles?.username || "HUNTER DESCONOCIDO"}</span>
+                           {/* MODO DE DEBUGEAR EN LA TABLA DE JUGADORES */}
+                           {p.profiles?.riot_puuid && !p.profiles?.riot_game_name && <span className="text-[10px] text-green-500 font-bold uppercase">PUUID VINCULADO</span>}
                            {p.profiles?.riot_game_name && <span className="text-[10px] text-gray-500 font-bold uppercase">{p.profiles.riot_game_name}#{p.profiles.riot_tagline}</span>}
                         </div>
                       </div>

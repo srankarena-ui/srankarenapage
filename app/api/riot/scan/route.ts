@@ -29,40 +29,64 @@ export async function POST(request: Request) {
 
     const p1 = profiles.find(p => p.id === player1_id);
     const p2 = profiles.find(p => p.id === player2_id);
-    const cluster = 'americas';
+
+    const clusterMap: Record<string, string> = {
+      'LAN': 'americas', 'LAS': 'americas', 'NA': 'americas', 'BR': 'americas',
+      'EUW': 'europe', 'EUNE': 'europe', 'KR': 'asia', 'JP': 'asia'
+    };
+    const cluster = clusterMap[p1?.lol_region || 'LAN'] || 'americas';
+
+    // Mapeo de prefijos de Riot (Platform IDs)
+    const platformMap: Record<string, string> = {
+      'LAN': 'LA1', 'LAS': 'LA2', 'NA': 'NA1', 'BR': 'BR1',
+      'EUW': 'EUW1', 'EUNE': 'EUN1', 'KR': 'KR', 'JP': 'JP1'
+    };
+    const platformPrefix = platformMap[p1?.lol_region || 'LAN'] || 'LA1';
 
     let matchData = null;
     let foundId = null;
 
-    // 🎯 MODO FRANCOTIRADOR BLINDADO
+    // 🎯 MODO FRANCOTIRADOR BLINDADO CONTRA NÚMEROS CRUDOS
     if (providedMatchId) {
-      const cleanId = providedMatchId.trim(); // Quitamos espacios accidentales
+      let cleanId = providedMatchId.trim();
+
+      // Si el usuario solo puso los números (ej: 1708151630), le agregamos automáticamente el prefijo (ej: LA1_1708151630)
+      if (!cleanId.includes('_')) {
+         cleanId = `${platformPrefix}_${cleanId}`;
+      }
+
       foundId = cleanId;
       
       const res = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/${cleanId}?api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
       
       if (!res.ok) {
-        return NextResponse.json({ error: `Riot no reconoce el Match ID: '${cleanId}'. Asegúrate de incluir la región, ej: LA1_123456` }, { status: 404 });
+        return NextResponse.json({ error: `Riot no reconoce el Match ID: '${cleanId}'.\nCódigo de error de Riot: ${res.status}` }, { status: 404 });
       }
       
       matchData = await res.json();
 
-      // VERIFICACIÓN DE IDENTIDAD: ¿Están realmente estos jugadores en esa partida?
+      // VERIFICACIÓN DE IDENTIDAD EXTREMA
       const participantsPuuids = matchData.metadata.participants;
       if (!participantsPuuids.includes(p1?.riot_puuid) || !participantsPuuids.includes(p2?.riot_puuid)) {
-         return NextResponse.json({ error: "La partida existe, pero UNO O AMBOS jugadores no coinciden con las cuentas vinculadas en S-Rank Arena. (¿Usaron cuentas smurfs?)" }, { status: 400 });
+         return NextResponse.json({ 
+            error: `La partida ${cleanId} existe y fue descargada con éxito, pero los PUUIDs de los jugadores no coinciden.\n\n` +
+                   `Jugador 1 registrado: ${p1?.riot_puuid?.substring(0, 10)}...\n` +
+                   `Jugador 2 registrado: ${p2?.riot_puuid?.substring(0, 10)}...\n` +
+                   `Riot dice que jugaron: ${participantsPuuids[0]?.substring(0, 10)}... y ${participantsPuuids[1]?.substring(0, 10)}...\n\n` +
+                   `¿Están usando cuentas smurfs no vinculadas a la web?` 
+         }, { status: 400 });
       }
 
     } else {
       // MODO RADAR AUTOMÁTICO
       const histRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/by-puuid/${p1?.riot_puuid}/ids?start=0&count=15&api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
-      if (!histRes.ok) return NextResponse.json({ error: "Error conectando con el historial de Riot." }, { status: 500 });
+      if (!histRes.ok) return NextResponse.json({ error: `Error conectando con el historial de Riot (Status: ${histRes.status}).` }, { status: 500 });
       const matchIds = await histRes.json();
 
       for (const id of matchIds) {
         const mRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/${id}?api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
         const data = await mRes.json();
-        if (data.metadata.participants.includes(p1?.riot_puuid) && data.metadata.participants.includes(p2?.riot_puuid)) {
+        if (data?.metadata?.participants?.includes(p1?.riot_puuid) && data?.metadata?.participants?.includes(p2?.riot_puuid)) {
           foundId = id;
           matchData = data;
           break;
@@ -70,7 +94,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!matchData) return NextResponse.json({ error: "No se detectó el duelo entre estos jugadores." }, { status: 404 });
+    if (!matchData) return NextResponse.json({ error: "No se detectó el duelo entre estos jugadores en el historial reciente." }, { status: 404 });
 
     const p1Stats = matchData.info.participants.find((p: any) => p.puuid === p1?.riot_puuid);
     const p2Stats = matchData.info.participants.find((p: any) => p.puuid === p2?.riot_puuid);
