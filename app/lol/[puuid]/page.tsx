@@ -98,12 +98,12 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
               className="w-24 h-24 rounded-2xl shadow-md border-2 border-gray-700"
             />
             <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1 rounded-full border border-gray-700">
-              {data.summoner?.summonerLevel}
+              {data.summoner?.summonerLevel || 0}
             </span>
           </div>
           <div className="text-center md:text-left">
             <h1 className="text-3xl font-bold text-white mb-1">
-              {data.summoner?.name} <span className="text-gray-500 text-xl font-normal">#{data.region}</span>
+              {data.summoner?.name || "Invocador"} <span className="text-gray-500 text-xl font-normal">#{data.region}</span>
             </h1>
             <button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-4 rounded transition">
               Actualizar Datos
@@ -116,12 +116,12 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
           {/* COLUMNA IZQUIERDA: RANGOS */}
           <div className="space-y-4">
 
-            {/* MODO DEBUG TEMPORAL - BORRAREMOS ESTO DESPUÉS */}
+            {/* MODO DEBUG ULTRA - ESTO NOS DARÁ LA RESPUESTA */}
             <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg overflow-x-auto text-xs text-red-200">
-              <p className="font-bold text-red-400 mb-1">🔍 DEBUG RANK DATA:</p>
-              <pre>{JSON.stringify(rankData, null, 2)}</pre>
-              <p className="font-bold text-red-400 mt-3 mb-1">🆔 SUMMONER ID:</p>
-              <pre>{data.summoner?.id || "NO ID ENCONTRADO"}</pre>
+              <p className="font-bold text-red-400 mb-1">🔍 OBJETO SUMMONER COMPLETO:</p>
+              <pre>{JSON.stringify(data.summoner, null, 2)}</pre>
+              <p className="font-bold text-red-400 mt-3 mb-1">🔗 PUUID LEÍDO POR NEXTJS:</p>
+              <pre>{resolvedParams.puuid}</pre>
             </div>
             {/* FIN DEBUG */}
 
