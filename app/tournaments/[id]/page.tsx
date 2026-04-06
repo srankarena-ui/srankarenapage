@@ -45,6 +45,19 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   const [scoreModal, setScoreModal] = useState<{ match: TournamentMatch, p1Score: number, p2Score: number } | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(null);
 
+const processUserSession = async (userId: string, participantsList: any[]) => {
+    const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    if (profile) {
+      setUserProfile(profile);
+      if (profile.role === "admin" || profile.role === "organizador") {
+        setIsAdmin(true);
+      }
+      if (participantsList && participantsList.some((p: any) => p.user_id === userId)) {
+        setIsRegistered(true);
+      }
+    }
+  };
+
   const loadInitialData = async () => {
     setLoading(true);
     const [tRes, pRes, mRes] = await Promise.all([
@@ -57,21 +70,31 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     if (pRes.data) setParticipants(pRes.data);
     if (mRes.data) setMatches(mRes.data);
 
+    // Intento 1: Búsqueda normal
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-      if (profile) {
-        setUserProfile(profile);
-        if (profile.role === "admin" || profile.role === "organizador") {
-          setIsAdmin(true);
-        }
-        if (pRes.data && pRes.data.some((p: any) => p.user_id === session.user.id)) {
-          setIsRegistered(true);
-        }
-      }
+      await processUserSession(session.user.id, pRes.data || []);
     }
     setLoading(false);
   };
+
+  useEffect(() => { 
+    setMounted(true);
+    loadInitialData(); 
+
+    // Intento 2: EL CAZADOR DE SESIONES (Escucha si la sesión carga un segundo después)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        // Obtenemos los participantes actuales del estado para verificar si ya está inscrito
+        supabase.from("tournament_participants")
+          .select("*")
+          .eq("tournament_id", tournamentId)
+          .then(({ data }) => processUserSession(session.user.id, data || []));
+      }
+    });
+
+    return () => { subscription.unsubscribe(); };
+  }, [tournamentId]);
 
   const refreshBracket = async () => {
     const [pRes, mRes] = await Promise.all([
