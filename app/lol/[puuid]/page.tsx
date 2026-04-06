@@ -13,11 +13,12 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
   useEffect(() => {
     async function fetchAll() {
       try {
-        const res = await fetch(`/api/lol/${resolvedParams.puuid}`);
+        // El "?t=" rompe la caché del navegador para que siempre traiga datos frescos
+        const res = await fetch(`/api/lol/${resolvedParams.puuid}?t=${new Date().getTime()}`);
         
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("El servidor no respondió con JSON. Revisa la consola del servidor.");
+          throw new Error("El servidor no respondió con JSON. Revisa la consola.");
         }
 
         const json = await res.json();
@@ -42,9 +43,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
     <div className="min-h-screen bg-[#111111] text-red-500 p-10 flex flex-col items-center justify-center text-center">
        <div className="border border-red-500/30 p-10 bg-red-500/5 rounded-lg max-w-xl">
           <h2 className="text-2xl font-black mb-4 uppercase">Error de Conexión</h2>
-          <p className="text-sm text-gray-400 mb-8">
-            {data?.error || "Error de comunicación con la API de Riot."}
-          </p>
+          <p className="text-sm text-gray-400 mb-8">{data?.error || "Error de comunicación."}</p>
           <Link href="/" className="bg-red-600 text-white px-6 py-2 rounded font-bold hover:bg-red-700 transition">Volver</Link>
        </div>
     </div>
@@ -108,7 +107,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-4">
-            <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800">
+            <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800 relative">
               <h3 className="text-gray-400 text-sm mb-3">Clasificatoria Solo/Dúo</h3>
               {soloRank ? (
                 <div className="flex items-center gap-4">
@@ -122,7 +121,16 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-500 italic text-sm">Unranked</p>
+                <div>
+                  <p className="text-gray-500 italic text-sm">Unranked</p>
+                  {/* CÓDIGO DE DIAGNÓSTICO: Si sigue fallando, nos mostrará por qué en un cuadrito muy pequeño */}
+                  {data._debug && data._debug.status !== "200" && (
+                     <div className="mt-4 p-2 bg-red-900/20 border border-red-500/50 text-[10px] text-red-400 rounded">
+                       <p>Debug ID: {data._debug.realSummonerId}</p>
+                       <p>Status: {data._debug.status}</p>
+                     </div>
+                  )}
+                </div>
               )}
             </div>
 
@@ -210,7 +218,6 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
                 );
               })}
             </div>
-
           </div>
         </div>
       </div>
