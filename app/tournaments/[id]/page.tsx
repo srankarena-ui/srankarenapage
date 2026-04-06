@@ -87,37 +87,61 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     loadInitialData(); 
   }, [tournamentId]);
 
-  // ==========================================
+// ==========================================
   // FUNCIONES DE REGISTRO
   // ==========================================
   const handleRegister = async () => {
-    if (!userProfile) return router.push("/login");
-    if (!userProfile.riot_puuid) {
+    setIsRegistering(true);
+    let currentProfile = userProfile;
+
+    // 1. REVISIÓN DE EMERGENCIA: Si el estado parece vacío, le preguntamos a Supabase directamente
+    if (!currentProfile) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        setIsRegistering(false);
+        return router.push("/login"); // Solo los saca si de verdad no hay sesión en Supabase
+      }
+
+      // Si sí hay usuario, buscamos su perfil a la fuerza
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !profileData) {
+        alert("Error crítico: Estás logueado, pero el sistema no puede leer tu perfil. Por favor refresca la página.");
+        setIsRegistering(false);
+        return;
+      }
+
+      // Guardamos la información rescatada
+      currentProfile = profileData;
+      setUserProfile(profileData);
+    }
+
+    // 2. EL CANDADO DE LEAGUE OF LEGENDS
+    if (!currentProfile.riot_puuid) {
       alert("¡Alto ahí, Hunter! 🛑\n\nNecesitas vincular tu cuenta de League of Legends en tu perfil para poder entrar a la Arena.");
+      setIsRegistering(false);
       return;
     }
-    setIsRegistering(true);
-    const { error } = await supabase.from("tournament_participants").insert([{ tournament_id: tournamentId, user_id: userProfile.id }]);
-    if (error) alert("Hubo un error al registrarse o ya estás inscrito.");
-    else { alert("¡Registro Exitoso!"); setIsRegistered(true); refreshBracket(); }
+    
+    // 3. INSCRIPCIÓN OFICIAL
+    const { error } = await supabase.from("tournament_participants").insert([
+      { tournament_id: tournamentId, user_id: currentProfile.id }
+    ]);
+
+    if (error) {
+      alert("Hubo un error al registrarse o ya estás inscrito.");
+    } else { 
+      alert("¡Registro Exitoso! Bienvenido a la misión."); 
+      setIsRegistered(true); 
+      refreshBracket(); 
+    }
     setIsRegistering(false);
   };
-
-  const handleUnregister = async () => {
-    if (!userProfile) return;
-    if (!confirm("¿Estás seguro que deseas abandonar la misión?")) return;
-    setIsRegistering(true);
-    const { error } = await supabase.from("tournament_participants").delete().eq("tournament_id", tournamentId).eq("user_id", userProfile.id);
-    if (error) alert("Hubo un error al intentar retirarte del torneo.");
-    else { alert("Te has retirado de la misión."); setIsRegistered(false); refreshBracket(); }
-    setIsRegistering(false);
-  };
-
-  const scrollToBracket = () => {
-    setActiveTab("bracket");
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-  };
-
   // ==========================================
   // FUNCIONES DEL BRACKET
   // ==========================================
