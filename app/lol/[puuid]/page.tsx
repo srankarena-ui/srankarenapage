@@ -115,13 +115,23 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
           
           {/* COLUMNA IZQUIERDA: RANGOS */}
           <div className="space-y-4">
+
+            {/* MODO DEBUG TEMPORAL - BORRAREMOS ESTO DESPUÉS */}
+            <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-lg overflow-x-auto text-xs text-red-200">
+              <p className="font-bold text-red-400 mb-1">🔍 DEBUG RANK DATA:</p>
+              <pre>{JSON.stringify(rankData, null, 2)}</pre>
+              <p className="font-bold text-red-400 mt-3 mb-1">🆔 SUMMONER ID:</p>
+              <pre>{data.summoner?.id || "NO ID ENCONTRADO"}</pre>
+            </div>
+            {/* FIN DEBUG */}
+
             {/* Solo/Duo */}
             <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800">
               <h3 className="text-gray-400 text-sm mb-3">Clasificatoria Solo/Dúo</h3>
               {soloRank ? (
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
-                    <p className="text-xl font-bold text-blue-400 capitalize">{soloRank.tier.toLowerCase()} {soloRank.rank}</p>
+                    <p className="text-xl font-bold text-blue-400 capitalize">{soloRank.tier?.toLowerCase()} {soloRank.rank}</p>
                     <p className="text-gray-400 text-sm">{soloRank.leaguePoints} LP</p>
                   </div>
                   <div className="text-right text-sm">
@@ -140,7 +150,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
               {flexRank ? (
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
-                    <p className="text-xl font-bold text-blue-400 capitalize">{flexRank.tier.toLowerCase()} {flexRank.rank}</p>
+                    <p className="text-xl font-bold text-blue-400 capitalize">{flexRank.tier?.toLowerCase()} {flexRank.rank}</p>
                     <p className="text-gray-400 text-sm">{flexRank.leaguePoints} LP</p>
                   </div>
                   <div className="text-right text-sm">
