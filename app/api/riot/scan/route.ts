@@ -19,54 +19,56 @@ export async function POST(request: Request) {
     const { matchId, player1_id, player2_id } = body;
 
     if (!matchId || !player1_id || !player2_id) {
-      return NextResponse.json({ error: "Faltan datos de los jugadores o del bracket." }, { status: 400 });
+      return NextResponse.json({ error: "Faltan datos del bracket." }, { status: 400 });
     }
 
-    // 1. Obtener los PUUIDs de ambos jugadores desde Supabase
     const { data: profiles, error: profileError } = await supabase
       .from('profiles')
       .select('id, riot_puuid, lol_region')
       .in('id', [player1_id, player2_id]);
 
     if (profileError || !profiles || profiles.length !== 2) {
-      return NextResponse.json({ error: "No se encontraron los perfiles de LoL de ambos jugadores." }, { status: 404 });
+      return NextResponse.json({ error: "No se encontraron los perfiles en la BD." }, { status: 404 });
     }
 
     const p1 = profiles.find(p => p.id === player1_id);
     const p2 = profiles.find(p => p.id === player2_id);
 
     if (!p1?.riot_puuid || !p2?.riot_puuid) {
-      return NextResponse.json({ error: "Uno de los jugadores no tiene su cuenta de LoL vinculada." }, { status: 400 });
+      return NextResponse.json({ error: "Un Hunter no tiene PUUID." }, { status: 400 });
     }
 
-    // 2. Determinar Cluster de Riot
-    const clusterMap: { [key: string]: string } = {
-      'LAN': 'americas', 'LAS': 'americas', 'NA': 'americas', 'BR': 'americas',
-      'EUW': 'europe', 'EUNE': 'europe', 'KR': 'asia', 'JP': 'asia'
-    };
-    const cluster = clusterMap[p1.lol_region || 'LAN'] || 'americas';
-
-    // 3. Buscar las últimas partidas del Jugador 1
-    const histRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/by-puuid/${p1.riot_puuid}/ids?start=0&count=15&api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
-    if (!histRes.ok) throw new Error("Error al consultar el historial de Riot.");
+    const cluster = 'americas'; // LAN, LAS, NA y BR comparten este cluster para el historial
+    
+    // Traemos 20 partidas por si acaso
+    const histRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/by-puuid/${p1.riot_puuid}/ids?start=0&count=20&api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
+    if (!histRes.ok) throw new Error(`Riot API Error: ${histRes.status}`);
     const matchIds = await histRes.json();
 
-    // 4. Buscar la partida Custom que coincida con ambos PUUIDs
+    if (matchIds.length === 0) {
+      return NextResponse.json({ error: "Riot dice que el historial de este jugador está completamente vacío." }, { status: 404 });
+    }
+
     let matchData = null;
     let foundId = null;
+    let debugInfo: string[] = []; // Array para guardar qué pasó con cada partida
 
     for (const id of matchIds) {
       const matchRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/${id}?api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
       if (!matchRes.ok) continue;
       
       const data = await matchRes.json();
-      
-      // Filtro: Partida personalizada
-      if (data.info.gameType !== "CUSTOM_GAME") continue;
-
+      const gameType = data.info.gameType; // Ej: CUSTOM_GAME, MATCHED_GAME
       const participantPuuids = data.metadata.participants;
       
-      if (participantPuuids.includes(p1.riot_puuid) && participantPuuids.includes(p2.riot_puuid)) {
+      const p1InGame = participantPuuids.includes(p1.riot_puuid);
+      const p2InGame = participantPuuids.includes(p2.riot_puuid);
+
+      // Agregamos info al debug
+      debugInfo.push(`ID: ${id} | Tipo: ${gameType} | Ambos Jugadores: ${p1InGame && p2InGame ? 'SÍ' : 'NO'}`);
+
+      // Ahora NO saltaremos si no es custom, simplemente buscaremos si los dos jugadores coinciden
+      if (p1InGame && p2InGame) {
         foundId = id;
         matchData = data;
         break; 
@@ -74,10 +76,13 @@ export async function POST(request: Request) {
     }
 
     if (!matchData) {
-      return NextResponse.json({ error: "No se encontró partida 1v1 reciente entre estos jugadores." }, { status: 404 });
+      return NextResponse.json({ 
+        error: "Riot no encontró ninguna partida (Custom o Normal) donde estos dos PUUIDs coincidan recientemente.",
+        debug_log: debugInfo.slice(0, 5) // Mostramos las últimas 5 partidas analizadas
+      }, { status: 404 });
     }
 
-    // 5. Lógica de victoria (1 Kill, 100 CS o 1 Torre)
+    // Validación de Objetivos
     const p1Stats = matchData.info.participants.find((p: any) => p.puuid === p1.riot_puuid);
     const p2Stats = matchData.info.participants.find((p: any) => p.puuid === p2.riot_puuid);
 
@@ -88,16 +93,14 @@ export async function POST(request: Request) {
     const p2Wins = p2Stats.firstBloodKill || p2Stats.kills >= 1 || p2CS >= 100 || p2Stats.turretsKilled >= 1;
 
     if (!p1Wins && !p2Wins) {
-      return NextResponse.json({ error: "Partida en curso o empate técnico (ningún objetivo cumplido)." }, { status: 400 });
+      return NextResponse.json({ 
+        error: `Encontramos la partida (${foundId}) pero fue un Remake/Empate técnico.\nP1: ${p1Stats.kills} Kills, ${p1CS} CS.\nP2: ${p2Stats.kills} Kills, ${p2CS} CS.` 
+      }, { status: 400 });
     }
 
     const finalWinnerId = p1Wins ? player1_id : player2_id;
 
-    return NextResponse.json({
-      success: true,
-      winner_id: finalWinnerId,
-      match_id: foundId
-    });
+    return NextResponse.json({ success: true, winner_id: finalWinnerId, match_id: foundId });
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
