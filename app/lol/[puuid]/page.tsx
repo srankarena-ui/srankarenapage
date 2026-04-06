@@ -8,12 +8,14 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Versión de los assets de Riot (puedes actualizarla cuando salgan parches nuevos)
+  const RIOT_PATCH = "14.8.1"; 
+
   useEffect(() => {
     async function fetchAll() {
       try {
         const res = await fetch(`/api/lol/${resolvedParams.puuid}`);
         
-        // CHEQUEO CRÍTICO: Si no es JSON, capturar el error
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
           throw new Error("El servidor no respondió con JSON. Revisa la consola del servidor.");
@@ -32,88 +34,202 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
   }, [resolvedParams.puuid]);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#05070a] flex items-center justify-center text-blue-400 font-mono text-xs tracking-[0.5em] animate-pulse uppercase">
-      RECONSTRUCTING_COMBAT_LOGS...
+    <div className="min-h-screen bg-[#111111] flex items-center justify-center text-blue-500 font-bold animate-pulse">
+      Cargando datos del invocador...
     </div>
   );
 
   if (!data || data.error) return (
-    <div className="min-h-screen bg-[#05070a] text-red-500 p-20 font-mono flex flex-col items-center justify-center text-center">
+    <div className="min-h-screen bg-[#111111] text-red-500 p-10 flex flex-col items-center justify-center text-center">
        <div className="border border-red-500/30 p-10 bg-red-500/5 rounded-lg max-w-xl">
-          <h2 className="text-2xl font-black mb-4 uppercase italic">Critical Stream Error</h2>
-          <p className="text-xs text-gray-500 mb-8 leading-relaxed">
-            {data?.error || "Error de comunicación con la API."} <br/>
-            Causa probable: RIOT_API_KEY expirada o URL de Supabase incorrecta.
+          <h2 className="text-2xl font-black mb-4 uppercase">Error de Conexión</h2>
+          <p className="text-sm text-gray-400 mb-8">
+            {data?.error || "Error de comunicación con la API de Riot."}
           </p>
-          <Link href="/" className="bg-red-500 text-white px-8 py-3 rounded text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-all">Volver a Base</Link>
+          <Link href="/" className="bg-red-600 text-white px-6 py-2 rounded font-bold hover:bg-red-700 transition">Volver</Link>
        </div>
     </div>
   );
 
+  // --- PROCESAMIENTO DE DATOS ---
   const matches = Array.isArray(data.matches) ? data.matches : [];
   const getP = (m: any) => m?.info?.participants?.find((p: any) => p.puuid === resolvedParams.puuid);
 
-  // Estadísticas acumuladas
-  const totalWards = matches.reduce((acc, m) => acc + (getP(m)?.wardsPlaced || 0), 0);
-  const totalPentas = matches.reduce((acc, m) => acc + (getP(m)?.pentaKills || 0), 0);
-  const totalGold = matches.reduce((acc, m) => acc + (getP(m)?.goldEarned || 0), 0);
+  // Rangos
+  const rankData = Array.isArray(data.rank) ? data.rank : [];
+  const soloRank = rankData.find((r: any) => r.queueType === "RANKED_SOLO_5x5");
+  const flexRank = rankData.find((r: any) => r.queueType === "RANKED_FLEX_SR");
+
+  // Estadísticas de las últimas 20 partidas
+  let kills = 0, deaths = 0, assists = 0, wins = 0;
+  let doubles = 0, triples = 0, quadras = 0, pentas = 0;
+
+  matches.forEach((m) => {
+    const p = getP(m);
+    if (p) {
+      kills += p.kills;
+      deaths += p.deaths;
+      assists += p.assists;
+      if (p.win) wins++;
+      doubles += p.doubleKills || 0;
+      triples += p.tripleKills || 0;
+      quadras += p.quadraKills || 0;
+      pentas += p.pentaKills || 0;
+    }
+  });
+
+  const totalGames = matches.length;
+  const winrate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+  const avgKills = totalGames > 0 ? (kills / totalGames).toFixed(1) : "0";
+  const avgDeaths = totalGames > 0 ? (deaths / totalGames).toFixed(1) : "0";
+  const avgAssists = totalGames > 0 ? (assists / totalGames).toFixed(1) : "0";
+  const kdaRatio = deaths === 0 ? "Perfecto" : ((kills + assists) / deaths).toFixed(2);
 
   return (
-    <main className="min-h-screen bg-[#05070a] text-gray-400 p-4 md:p-10 font-mono text-[11px] selection:bg-blue-900">
-      <div className="max-w-7xl mx-auto space-y-12">
+    <main className="min-h-screen bg-[#111111] text-gray-300 p-4 md:p-8 font-sans">
+      <div className="max-w-5xl mx-auto space-y-6">
         
-        {/* HEADER */}
-        <div className="border border-blue-900/30 bg-[#0a0d14] p-8 rounded-sm">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-            <div>
-              <h1 className="text-3xl font-black text-white uppercase tracking-tighter mb-1">{data.summoner?.name} <span className="text-blue-900">#{data.region}</span></h1>
-              <p className="text-blue-500 font-bold uppercase tracking-widest opacity-50">ID: {resolvedParams.puuid}</p>
-            </div>
-            <div className="text-right border-l border-blue-900/30 pl-6">
-              <p className="text-gray-600">ACC_LEVEL</p>
-              <p className="text-2xl font-black text-white">{data.summoner?.summonerLevel}</p>
-            </div>
+        {/* CABECERA DEL PERFIL */}
+        <div className="bg-[#1e1e1e] rounded-lg p-6 flex flex-col md:flex-row items-center gap-6 border border-gray-800 shadow-lg">
+          <div className="relative">
+            <img 
+              src={`https://ddragon.leagueoflegends.com/cdn/${RIOT_PATCH}/img/profileicon/${data.summoner?.profileIconId || 1}.png`} 
+              alt="Profile Icon" 
+              className="w-24 h-24 rounded-2xl shadow-md border-2 border-gray-700"
+            />
+            <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs font-bold px-3 py-1 rounded-full border border-gray-700">
+              {data.summoner?.summonerLevel}
+            </span>
+          </div>
+          <div className="text-center md:text-left">
+            <h1 className="text-3xl font-bold text-white mb-1">
+              {data.summoner?.name} <span className="text-gray-500 text-xl font-normal">#{data.region}</span>
+            </h1>
+            <button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-4 rounded transition">
+              Actualizar Datos
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          {/* STATS PURE TEXT */}
-          <div className="space-y-6">
-            <h2 className="text-blue-400 font-bold uppercase border-b border-blue-900/30 pb-2">Combat_Metrics (Last 20)</h2>
-            <div className="bg-[#0a0d14] border border-blue-900/10 p-6 space-y-3">
-              <div className="flex justify-between italic"><span>Total Wards:</span> <span className="text-white">{totalWards}</span></div>
-              <div className="flex justify-between italic"><span>Pentakills:</span> <span className="text-purple-500">{totalPentas}</span></div>
-              <div className="flex justify-between italic"><span>Gold Accumulation:</span> <span className="text-yellow-500">{totalGold.toLocaleString()} G</span></div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* COLUMNA IZQUIERDA: RANGOS */}
+          <div className="space-y-4">
+            {/* Solo/Duo */}
+            <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800">
+              <h3 className="text-gray-400 text-sm mb-3">Clasificatoria Solo/Dúo</h3>
+              {soloRank ? (
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <p className="text-xl font-bold text-blue-400 capitalize">{soloRank.tier.toLowerCase()} {soloRank.rank}</p>
+                    <p className="text-gray-400 text-sm">{soloRank.leaguePoints} LP</p>
+                  </div>
+                  <div className="text-right text-sm">
+                    <p className="text-gray-400">{soloRank.wins}V {soloRank.losses}D</p>
+                    <p className="text-gray-500">Win Rate {Math.round((soloRank.wins / (soloRank.wins + soloRank.losses)) * 100)}%</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 italic text-sm">Unranked</p>
+              )}
+            </div>
+
+            {/* Flex */}
+            <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800">
+              <h3 className="text-gray-400 text-sm mb-3">Clasificatoria Flexible</h3>
+              {flexRank ? (
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <p className="text-xl font-bold text-blue-400 capitalize">{flexRank.tier.toLowerCase()} {flexRank.rank}</p>
+                    <p className="text-gray-400 text-sm">{flexRank.leaguePoints} LP</p>
+                  </div>
+                  <div className="text-right text-sm">
+                    <p className="text-gray-400">{flexRank.wins}V {flexRank.losses}D</p>
+                    <p className="text-gray-500">Win Rate {Math.round((flexRank.wins / (flexRank.wins + flexRank.losses)) * 100)}%</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 italic text-sm">Unranked</p>
+              )}
             </div>
           </div>
 
-          {/* HISTORY LOG */}
-          <div className="lg:col-span-2 space-y-6">
-            <h2 className="text-blue-400 font-bold uppercase border-b border-blue-900/30 pb-2">Historical_Log</h2>
-            <div className="space-y-3">
+          {/* COLUMNA DERECHA: PARTIDAS Y ESTADÍSTICAS */}
+          <div className="lg:col-span-2 space-y-4">
+            
+            {/* Resumen 20 partidas */}
+            <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800 flex flex-col md:flex-row gap-6 items-center md:justify-between">
+              <div className="text-center md:text-left">
+                <p className="text-sm text-gray-400 mb-1">{totalGames} Partidas Recientes</p>
+                <p className="text-xl font-bold text-white">{wins}V {totalGames - wins}D</p>
+                <p className={`text-lg font-bold ${winrate >= 50 ? 'text-blue-500' : 'text-red-500'}`}>
+                  {winrate}% Win Rate
+                </p>
+              </div>
+              
+              <div className="text-center">
+                <p className="text-lg font-bold text-white">{avgKills} / <span className="text-red-500">{avgDeaths}</span> / {avgAssists}</p>
+                <p className="text-sm font-semibold text-gray-400">{kdaRatio}:1 KDA</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-400">
+                <p>Dobles: <span className="text-white font-bold">{doubles}</span></p>
+                <p>Triples: <span className="text-green-400 font-bold">{triples}</span></p>
+                <p>Quadras: <span className="text-purple-400 font-bold">{quadras}</span></p>
+                <p>Pentas: <span className="text-yellow-400 font-bold">{pentas}</span></p>
+              </div>
+            </div>
+
+            {/* Lista de Partidas */}
+            <div className="space-y-2">
               {matches.map((m: any, idx: number) => {
                 const p = getP(m);
+                if (!p) return null;
+                
+                const isWin = p.win;
+                const matchKDA = p.deaths === 0 ? "Perfecto" : ((p.kills + p.assists) / p.deaths).toFixed(2);
+                const cs = p.totalMinionsKilled + (p.neutralMinionsKilled || 0);
+                const gameMinutes = Math.floor(m.info.gameDuration / 60);
+
                 return (
-                  <div key={idx} className="bg-[#0a0d14] border border-gray-900 p-4 grid grid-cols-2 md:grid-cols-4 gap-4 opacity-80 hover:opacity-100 transition-opacity">
-                    <div className="border-r border-gray-900">
-                      <p className="text-blue-400 font-black">{p?.championName}</p>
-                      <p className={p?.win ? "text-green-500" : "text-red-500"}>{p?.win ? "SUCCESS" : "FAIL"}</p>
+                  <div key={idx} className={`flex items-center gap-4 p-3 rounded-md border-l-4 ${isWin ? 'bg-[#28344e] border-blue-500' : 'bg-[#59343b] border-red-500'}`}>
+                    
+                    {/* Tiempos y Modo */}
+                    <div className="w-20 text-xs text-gray-300">
+                      <p className={`font-bold ${isWin ? 'text-blue-400' : 'text-red-400'}`}>{isWin ? 'Victoria' : 'Derrota'}</p>
+                      <p>{m.info.gameMode}</p>
+                      <p className="text-gray-400">{gameMinutes} min</p>
                     </div>
-                    <div>
-                      <p>KDA: {p?.kills}/{p?.deaths}/{p?.assists}</p>
-                      <p>CS: {p?.totalMinionsKilled + (p?.neutralMinionsKilled || 0)}</p>
+
+                    {/* Campeón y Hechizos */}
+                    <div className="flex items-center gap-2">
+                      <img 
+                        src={`https://ddragon.leagueoflegends.com/cdn/${RIOT_PATCH}/img/champion/${p.championName}.png`} 
+                        alt={p.championName}
+                        className="w-12 h-12 rounded-full"
+                      />
                     </div>
-                    <div className="text-[9px] text-gray-600">
-                       DMG: {p?.totalDamageDealtToChampions.toLocaleString()} <br/>
-                       TAKEN: {p?.totalDamageTaken.toLocaleString()}
+
+                    {/* KDA */}
+                    <div className="flex-1 text-center">
+                      <p className="text-lg font-bold text-white">{p.kills} / <span className="text-red-400">{p.deaths}</span> / {p.assists}</p>
+                      <p className="text-xs text-gray-400">{matchKDA}:1 KDA</p>
                     </div>
-                    <div className="text-right text-gray-500">
-                       {Math.floor(m.info.gameDuration / 60)}m | {m.info.gameMode}
+
+                    {/* CS y MultiKills */}
+                    <div className="w-24 text-right text-xs text-gray-300 hidden md:block">
+                      <p>CS {cs} ({((cs) / gameMinutes).toFixed(1)})</p>
+                      {p.pentaKills > 0 && <span className="bg-yellow-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Penta</span>}
+                      {p.quadraKills > 0 && p.pentaKills === 0 && <span className="bg-purple-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Quadra</span>}
+                      {p.tripleKills > 0 && p.quadraKills === 0 && p.pentaKills === 0 && <span className="bg-green-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Triple</span>}
+                      {p.doubleKills > 0 && p.tripleKills === 0 && p.quadraKills === 0 && p.pentaKills === 0 && <span className="bg-red-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Doble</span>}
                     </div>
+
                   </div>
                 );
               })}
             </div>
+
           </div>
         </div>
       </div>
