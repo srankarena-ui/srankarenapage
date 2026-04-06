@@ -56,7 +56,6 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
       if (profile) {
         setUserProfile(profile);
-        // CORRECCIÓN: Validación estricta solo para los roles de organizador/admin.
         if (profile.role === "admin" || profile.role === "organizador") {
           setIsAdmin(true);
         }
@@ -82,16 +81,14 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     loadInitialData(); 
   }, [tournamentId]);
 
- // ==========================================
-  // FUNCIONES DE REGISTRO
+  // ==========================================
+  // FUNCIONES DE REGISTRO Y DEREGISTRO
   // ==========================================
   const handleRegister = async () => {
     if (!userProfile) return router.push("/login");
 
-    // 🔒 EL CANDADO DE ACERO: Verificación de League of Legends
     if (!userProfile.riot_puuid) {
-      alert("¡Alto ahí, Hunter! 🛑\n\nNecesitas vincular tu cuenta de League of Legends (Riot ID) en tu perfil para poder entrar a la Arena y registrar tus estadísticas.");
-      // Opcional: router.push("/profile"); // Descomenta esto si quieres que los envíe directo a su perfil
+      alert("¡Alto ahí, Hunter! 🛑\n\nNecesitas vincular tu cuenta de League of Legends (Riot ID) en tu perfil para poder entrar a la Arena.");
       return;
     }
 
@@ -104,15 +101,41 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     if (error) {
       alert("Hubo un error al registrarse o ya estás inscrito.");
     } else {
-      alert("¡Registro Exitoso! Bienvenido a la misión.");
+      alert("¡Registro Exitoso!");
       setIsRegistered(true);
       refreshBracket();
     }
     setIsRegistering(false);
   };
 
+  const handleUnregister = async () => {
+    if (!userProfile) return;
+    if (!confirm("¿Estás seguro que deseas abandonar la misión?")) return;
+
+    setIsRegistering(true);
+    const { error } = await supabase
+      .from("tournament_participants")
+      .delete()
+      .eq("tournament_id", tournamentId)
+      .eq("user_id", userProfile.id);
+
+    if (error) {
+      alert("Hubo un error al intentar retirarte del torneo.");
+    } else {
+      alert("Te has retirado de la misión.");
+      setIsRegistered(false);
+      refreshBracket();
+    }
+    setIsRegistering(false);
+  };
+
+  const scrollToBracket = () => {
+    setActiveTab("bracket");
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  };
+
   // ==========================================
-  // FUNCIONES DEL BRACKET (INTACTAS)
+  // FUNCIONES DEL BRACKET
   // ==========================================
   const generateBracket = async () => {
     if (!isAdmin) return;
@@ -331,7 +354,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
             
             <div className="flex justify-between items-center gap-4 mb-10">
               <div className="flex flex-col items-center flex-1">
-                <span className="text-[10px] font-black uppercase text-gray-300 mb-4 truncate w-full text-center italic">{participants.find(p => p.user_id === scoreModal.match.player1_id)?.profiles.username || "TBD"}</span>
+                <span className="text-[10px] font-black uppercase text-gray-300 mb-4 truncate w-full text-center italic">{participants.find(p => p.user_id === scoreModal.match.player1_id)?.profiles?.username || "TBD"}</span>
                 <div className="flex items-center gap-2 sm:gap-3">
                   <button onClick={() => setScoreModal({...scoreModal, p1Score: Math.max(0, scoreModal.p1Score - 1)})} className="w-10 h-10 rounded-xl bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-red-900/50 hover:border-red-500 font-black transition-all">-</button>
                   <input type="number" min="0" value={scoreModal.p1Score} onChange={(e) => setScoreModal({...scoreModal, p1Score: parseInt(e.target.value) || 0})} className="w-16 sm:w-20 h-16 sm:h-20 bg-[#0b0e14] border-2 border-gray-700 rounded-3xl text-center text-3xl sm:text-4xl font-black text-white outline-none focus:border-purple-500 transition-all shadow-inner" />
@@ -340,7 +363,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
               </div>
               <span className="text-2xl font-black text-gray-800 italic mt-8 mx-2">VS</span>
               <div className="flex flex-col items-center flex-1">
-                <span className="text-[10px] font-black uppercase text-gray-300 mb-4 truncate w-full text-center italic">{participants.find(p => p.user_id === scoreModal.match.player2_id)?.profiles.username || "TBD"}</span>
+                <span className="text-[10px] font-black uppercase text-gray-300 mb-4 truncate w-full text-center italic">{participants.find(p => p.user_id === scoreModal.match.player2_id)?.profiles?.username || "TBD"}</span>
                 <div className="flex items-center gap-2 sm:gap-3">
                   <button onClick={() => setScoreModal({...scoreModal, p2Score: Math.max(0, scoreModal.p2Score - 1)})} className="w-10 h-10 rounded-xl bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-red-900/50 hover:border-red-500 font-black transition-all">-</button>
                   <input type="number" min="0" value={scoreModal.p2Score} onChange={(e) => setScoreModal({...scoreModal, p2Score: parseInt(e.target.value) || 0})} className="w-16 sm:w-20 h-16 sm:h-20 bg-[#0b0e14] border-2 border-gray-700 rounded-3xl text-center text-3xl sm:text-4xl font-black text-white outline-none focus:border-purple-500 transition-all shadow-inner" />
@@ -360,7 +383,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
           <div className="bg-[#121620] border-2 border-purple-500/50 p-10 rounded-[3rem] max-w-2xl w-full shadow-[0_0_100px_rgba(168,85,247,0.3)]" onClick={e => e.stopPropagation()}>
             <h3 className="text-2xl font-black italic uppercase text-white mb-8 tracking-tighter">Assign Hunter</h3>
             <div className="grid grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
-              {participants.map(p => <button key={p.id} onClick={() => swapPlayer(seedingSlot.matchId, seedingSlot.playerSide, p.user_id)} className="bg-[#0b0e14] border border-gray-800 hover:border-purple-600 hover:text-white p-5 rounded-2xl text-left font-black text-[11px] uppercase text-gray-400 transition-all truncate">{p.profiles.username}</button>)}
+              {participants.map(p => <button key={p.id} onClick={() => swapPlayer(seedingSlot.matchId, seedingSlot.playerSide, p.user_id)} className="bg-[#0b0e14] border border-gray-800 hover:border-purple-600 hover:text-white p-5 rounded-2xl text-left font-black text-[11px] uppercase text-gray-400 transition-all truncate">{p.profiles?.username || "HUNTER DESCONOCIDO"}</button>)}
             </div>
             <button onClick={() => setSeedingSlot(null)} className="w-full mt-8 py-4 text-[11px] font-black uppercase text-gray-500 hover:text-white transition-all tracking-[0.4em]">Cancel</button>
           </div>
@@ -412,7 +435,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
 
               {/* BOTONES DE ACCIÓN RÁPIDA (Registro y Admin) */}
               <div className="flex flex-col gap-3 items-end">
-                {isAdmin && (
+                {mounted && isAdmin && (
                   <button 
                     onClick={scrollToBracket}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-900/40"
@@ -421,29 +444,34 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                   </button>
                 )}
                 
-                <button 
-                  onClick={handleRegister}
-                  disabled={isRegistering || isRegistered}
-                  className={`px-12 py-5 rounded-2xl font-black uppercase tracking-widest transition-all transform active:scale-95 shadow-2xl ${
-                    isRegistered 
-                    ? 'bg-[#1a1d2b] text-gray-500 border border-gray-800 cursor-not-allowed' 
-                    : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/40'
-                  }`}
-                >
-                  {isRegistering ? "Registering..." : isRegistered ? "Mission Joined" : "Join Tournament"}
-                </button>
+                {isRegistered ? (
+                  <button 
+                    onClick={handleUnregister}
+                    disabled={isRegistering}
+                    className="px-12 py-5 rounded-2xl font-black uppercase tracking-widest transition-all transform active:scale-95 shadow-2xl bg-[#1a1d2b] text-red-500 hover:bg-red-900/40 border border-red-900/50 hover:text-red-400"
+                  >
+                    {isRegistering ? "Processing..." : "Abort Mission (Leave)"}
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleRegister}
+                    disabled={isRegistering}
+                    className="px-12 py-5 rounded-2xl font-black uppercase tracking-widest transition-all transform active:scale-95 shadow-2xl bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/40"
+                  >
+                    {isRegistering ? "Registering..." : "Join Tournament"}
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* TABS NAVEGACIÓN - CORRECCIÓN DE VISIBILIDAD */}
+        {/* TABS NAVEGACIÓN */}
         <div className="max-w-7xl mx-auto px-4 md:px-8 mt-10">
           <nav className="flex border-b border-gray-800 gap-10 overflow-x-auto relative z-30">
             {[
               { id: 'overview', label: 'Overview', show: true },
               { id: 'players', label: 'Participants', show: true },
-              // CORRECCIÓN: Los usuarios normales solo ven la pestaña si ya hay un bracket generado.
               { id: 'bracket', label: isAdmin ? 'Manage Bracket' : 'Bracket', show: isAdmin || matches.length > 0 }
             ].filter(tab => tab.show).map(tab => (
               <button 
@@ -487,7 +515,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                       <div className="w-12 h-12 bg-[#0b0e14] rounded-xl flex items-center justify-center font-black text-purple-500 border border-gray-800">
                         #{participants.indexOf(p) + 1}
                       </div>
-                      <span className="font-black text-white uppercase italic tracking-tighter text-lg">{p.profiles?.username}</span>
+                      <span className="font-black text-white uppercase italic tracking-tighter text-lg">{p.profiles?.username || "HUNTER DESCONOCIDO"}</span>
                     </div>
                   )) : (
                     <p className="text-gray-500 italic uppercase font-bold tracking-widest">No hunters have joined the mission yet...</p>
@@ -544,7 +572,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                           <p className="text-gray-700 text-lg font-black uppercase tracking-[0.6em] italic mb-6">No Tactical Data Detected</p>
                           <div className="flex gap-6 overflow-x-auto max-w-full pb-4">
                               {participants.map(p => (
-                                  <div key={p.id} className="bg-[#0b0e14] border border-gray-800 px-6 py-3 rounded-xl text-[10px] font-black uppercase italic text-gray-500 shrink-0">{p.profiles.username}</div>
+                                  <div key={p.id} className="bg-[#0b0e14] border border-gray-800 px-6 py-3 rounded-xl text-[10px] font-black uppercase italic text-gray-500 shrink-0">{p.profiles?.username || "HUNTER DESCONOCIDO"}</div>
                               ))}
                           </div>
                       </div>
