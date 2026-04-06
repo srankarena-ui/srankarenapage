@@ -82,11 +82,19 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     loadInitialData(); 
   }, [tournamentId]);
 
-  // ==========================================
+ // ==========================================
   // FUNCIONES DE REGISTRO
   // ==========================================
   const handleRegister = async () => {
     if (!userProfile) return router.push("/login");
+
+    // 🔒 EL CANDADO DE ACERO: Verificación de League of Legends
+    if (!userProfile.riot_puuid) {
+      alert("¡Alto ahí, Hunter! 🛑\n\nNecesitas vincular tu cuenta de League of Legends (Riot ID) en tu perfil para poder entrar a la Arena y registrar tus estadísticas.");
+      // Opcional: router.push("/profile"); // Descomenta esto si quieres que los envíe directo a su perfil
+      return;
+    }
+
     setIsRegistering(true);
     
     const { error } = await supabase.from("tournament_participants").insert([
@@ -96,16 +104,11 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     if (error) {
       alert("Hubo un error al registrarse o ya estás inscrito.");
     } else {
-      alert("¡Registro Exitoso!");
+      alert("¡Registro Exitoso! Bienvenido a la misión.");
       setIsRegistered(true);
       refreshBracket();
     }
     setIsRegistering(false);
-  };
-
-  const scrollToBracket = () => {
-    setActiveTab("bracket");
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   };
 
   // ==========================================
