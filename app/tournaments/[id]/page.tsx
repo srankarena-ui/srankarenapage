@@ -8,7 +8,7 @@ import { Tournament, TournamentMatch, UserProfile } from "../../../types";
 import { Bracket, Seed, SeedItem } from "react-brackets";
 
 // ==========================================
-// ICONOS SVG NATIVOS (LIMPIOS Y MODERNOS)
+// ICONOS SVG NATIVOS
 // ==========================================
 const ReturnIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>;
 const LinkIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
@@ -87,23 +87,31 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     loadInitialData(); 
   }, [tournamentId]);
 
-// ==========================================
-  // FUNCIONES DE REGISTRO
+  // ==========================================
+  // FUNCIONES DE REGISTRO (MODO DEBUG)
   // ==========================================
   const handleRegister = async () => {
     setIsRegistering(true);
-    let currentProfile = userProfile;
 
-    // 1. REVISIÓN DE EMERGENCIA: Si el estado parece vacío, le preguntamos a Supabase directamente
-    if (!currentProfile) {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+    try {
+      // 1. Verificamos la sesión a la fuerza
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (authError || !user) {
+      if (!session) {
+        alert("🔍 [DEBUG]: Supabase detecta que NO hay sesión activa en este navegador. Por favor, vuelve a iniciar sesión e inténtalo de nuevo.");
         setIsRegistering(false);
-        return router.push("/login"); // Solo los saca si de verdad no hay sesión en Supabase
+        return; // No redirigimos para que el tester pueda leer el error.
       }
 
-      // Si sí hay usuario, buscamos su perfil a la fuerza
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert("🔍 [DEBUG]: Hay sesión, pero no se pudo obtener el User ID de Supabase.");
+        setIsRegistering(false);
+        return;
+      }
+
+      // 2. Buscamos el perfil usando el ID que acabamos de asegurar
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
@@ -111,37 +119,54 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         .single();
 
       if (profileError || !profileData) {
-        alert("Error crítico: Estás logueado, pero el sistema no puede leer tu perfil. Por favor refresca la página.");
+        alert(`🔍 [DEBUG]: Error al buscar tu perfil en la base de datos. Detalle: ${profileError?.message}`);
         setIsRegistering(false);
         return;
       }
 
-      // Guardamos la información rescatada
-      currentProfile = profileData;
-      setUserProfile(profileData);
+      // 3. Verificamos el Candado de LoL
+      if (!profileData.riot_puuid) {
+         alert("¡Alto ahí, Hunter! 🛑\n\nNecesitas vincular tu cuenta de League of Legends en tu perfil para poder entrar a la Arena.");
+         setIsRegistering(false);
+         return;
+      }
+
+      // 4. Inscribimos al usuario
+      const { error } = await supabase.from("tournament_participants").insert([
+        { tournament_id: tournamentId, user_id: profileData.id }
+      ]);
+
+      if (error) {
+        if (error.code === '23505') { // Código de error SQL para violación de "único" (ya existe)
+            alert("Ya estás inscrito en esta misión.");
+        } else {
+            alert(`🔍 [DEBUG] Error al intentar guardar en la base de datos: ${error.message}`);
+        }
+      } else {
+        alert("¡Registro Exitoso! Bienvenido a la misión.");
+        setIsRegistered(true);
+        refreshBracket();
+      }
+
+    } catch (err: any) {
+        alert(`🔍 [DEBUG] Error Inesperado del sistema: ${err.message}`);
     }
 
-    // 2. EL CANDADO DE LEAGUE OF LEGENDS
-    if (!currentProfile.riot_puuid) {
-      alert("¡Alto ahí, Hunter! 🛑\n\nNecesitas vincular tu cuenta de League of Legends en tu perfil para poder entrar a la Arena.");
-      setIsRegistering(false);
-      return;
-    }
-    
-    // 3. INSCRIPCIÓN OFICIAL
-    const { error } = await supabase.from("tournament_participants").insert([
-      { tournament_id: tournamentId, user_id: currentProfile.id }
-    ]);
-
-    if (error) {
-      alert("Hubo un error al registrarse o ya estás inscrito.");
-    } else { 
-      alert("¡Registro Exitoso! Bienvenido a la misión."); 
-      setIsRegistered(true); 
-      refreshBracket(); 
-    }
     setIsRegistering(false);
   };
+
+  const handleUnregister = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return alert("No estás autenticado.");
+    
+    if (!confirm("¿Estás seguro que deseas abandonar la misión?")) return;
+    setIsRegistering(true);
+    const { error } = await supabase.from("tournament_participants").delete().eq("tournament_id", tournamentId).eq("user_id", user.id);
+    if (error) alert("Hubo un error al intentar retirarte del torneo.");
+    else { alert("Te has retirado de la misión."); setIsRegistered(false); refreshBracket(); }
+    setIsRegistering(false);
+  };
+
   // ==========================================
   // FUNCIONES DEL BRACKET
   // ==========================================
@@ -286,7 +311,6 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       const newP1Score = data.winner_id === match.player1_id ? (match.player1_score || 0) + 1 : (match.player1_score || 0);
       const newP2Score = data.winner_id === match.player2_id ? (match.player2_score || 0) + 1 : (match.player2_score || 0);
 
-      // Abrimos el modal con el score pre-cargado
       setScoreModal({ match, p1Score: newP1Score, p2Score: newP2Score });
 
     } catch (err) {
