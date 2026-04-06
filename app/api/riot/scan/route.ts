@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       .in('id', [player1_id, player2_id]);
 
     if (!profiles || profiles.length !== 2) {
-      return NextResponse.json({ error: "Perfiles no encontrados." }, { status: 404 });
+      return NextResponse.json({ error: "Perfiles no encontrados en la base de datos." }, { status: 404 });
     }
 
     const p1 = profiles.find(p => p.id === player1_id);
@@ -32,16 +32,31 @@ export async function POST(request: Request) {
     const cluster = 'americas';
 
     let matchData = null;
-    let foundId = providedMatchId || null;
+    let foundId = null;
 
-    // MODO FRANCOTIRADOR: Si nos dan el ID, vamos directo a él
+    // 🎯 MODO FRANCOTIRADOR BLINDADO
     if (providedMatchId) {
-      const res = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/${providedMatchId}?api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
-      if (!res.ok) return NextResponse.json({ error: "El Match ID proporcionado no existe en Riot." }, { status: 404 });
+      const cleanId = providedMatchId.trim(); // Quitamos espacios accidentales
+      foundId = cleanId;
+      
+      const res = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/${cleanId}?api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
+      
+      if (!res.ok) {
+        return NextResponse.json({ error: `Riot no reconoce el Match ID: '${cleanId}'. Asegúrate de incluir la región, ej: LA1_123456` }, { status: 404 });
+      }
+      
       matchData = await res.json();
+
+      // VERIFICACIÓN DE IDENTIDAD: ¿Están realmente estos jugadores en esa partida?
+      const participantsPuuids = matchData.metadata.participants;
+      if (!participantsPuuids.includes(p1?.riot_puuid) || !participantsPuuids.includes(p2?.riot_puuid)) {
+         return NextResponse.json({ error: "La partida existe, pero UNO O AMBOS jugadores no coinciden con las cuentas vinculadas en S-Rank Arena. (¿Usaron cuentas smurfs?)" }, { status: 400 });
+      }
+
     } else {
-      // MODO RADAR: Buscamos en el historial
+      // MODO RADAR AUTOMÁTICO
       const histRes = await fetch(`https://${cluster}.api.riotgames.com/lol/match/v5/matches/by-puuid/${p1?.riot_puuid}/ids?start=0&count=15&api_key=${RIOT_API_KEY}`, { cache: 'no-store' });
+      if (!histRes.ok) return NextResponse.json({ error: "Error conectando con el historial de Riot." }, { status: 500 });
       const matchIds = await histRes.json();
 
       for (const id of matchIds) {
@@ -63,14 +78,15 @@ export async function POST(request: Request) {
     const p1CS = (p1Stats?.totalMinionsKilled || 0) + (p1Stats?.neutralMinionsKilled || 0);
     const p2CS = (p2Stats?.totalMinionsKilled || 0) + (p2Stats?.neutralMinionsKilled || 0);
 
+    // LOGICA DE VICTORIA
     const p1Wins = p1Stats?.firstBloodKill || p1Stats?.kills >= 1 || p1CS >= 100 || p1Stats?.turretsKilled >= 1;
     const p2Wins = p2Stats?.firstBloodKill || p2Stats?.kills >= 1 || p2CS >= 100 || p2Stats?.turretsKilled >= 1;
 
-    if (!p1Wins && !p2Wins) return NextResponse.json({ error: "Partida sin objetivos cumplidos (Remake)." }, { status: 400 });
+    if (!p1Wins && !p2Wins) return NextResponse.json({ error: "Encontramos la partida, pero nadie cumplió los objetivos (0 Kills, <100 CS, 0 Torres). Es un Remake." }, { status: 400 });
 
     return NextResponse.json({ success: true, winner_id: p1Wins ? player1_id : player2_id, match_id: foundId });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Error Interno: " + error.message }, { status: 500 });
   }
 }
