@@ -107,7 +107,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   };
 
   // ==========================================
-  // FUNCIONES DE REGISTRO (MODO DEBUG)
+  // FUNCIONES DE REGISTRO (MODO DEBUG + RESTRICCIONES)
   // ==========================================
   const handleRegister = async () => {
     setIsRegistering(true);
@@ -140,8 +140,15 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         return;
       }
 
-      if (!profileData.riot_puuid) {
-         alert("¡Alto ahí, Hunter! 🛑\n\nNecesitas vincular tu cuenta de League of Legends en tu perfil para poder entrar a la Arena.");
+      // NUEVO: Candados de seguridad dependiendo del juego del torneo
+      if (tournament.game === "League of Legends" && !profileData.riot_puuid) {
+         alert("¡Alto ahí, Hunter! 🛑\n\nEste torneo es de League of Legends. Necesitas vincular tu cuenta de Riot en tu perfil para poder entrar a la Arena.");
+         setIsRegistering(false);
+         return;
+      }
+
+      if (tournament.game === "Clash Royale" && !profileData.cr_tag) {
+         alert("¡Alto ahí, Hunter! 🛑\n\nEste torneo es de Clash Royale. Necesitas vincular tu Tag de Supercell en tu perfil para poder entrar a la Arena.");
          setIsRegistering(false);
          return;
       }
@@ -287,14 +294,18 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   };
 
   // ==========================================
-  // LA MAGIA DE RIOT (SCANNER AUTOMÁTICO Y FRANCOTIRADOR)
+  // LA MAGIA DEL ESCÁNER (LOL / CLASH ROYALE)
   // ==========================================
-  const scanRiotMatch = async (match: TournamentMatch, customId?: string) => {
+  const scanMatchAPI = async (match: TournamentMatch, customId?: string) => {
     if (!isAdmin || isScanning) return;
     
     setIsScanning(match.id);
+
+    // NUEVO: Verificamos qué API llamar según el juego
+    const apiEndpoint = tournament.game === "Clash Royale" ? "/api/cr/scan" : "/api/riot/scan";
+
     try {
-      const res = await fetch("/api/riot/scan", {
+      const res = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -345,23 +356,33 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       setScoreModal({ match, p1Score: match.player1_score || 0, p2Score: match.player2_score || 0 });
     };
 
-    // FUNCIÓN DE RENDERIZADO CORREGIDA PARA NOMBRES
+    // FUNCIÓN DE RENDERIZADO DUAL (LOL / CR)
     const renderPlayer = (p: any, score: number, isWinner: boolean, side: 1|2) => {
       let displayName = "--- TBD ---";
       let subText = "SIN VINCULAR";
 
       if (p) {
-         // Buscamos el nombre de Riot en múltiples columnas posibles comunes
-         const nombreLol = p.riot_game_name || p.lol_name || p.summoner_name || p.riot_id;
-         const tagLol = p.riot_tagline || p.lol_tag || p.tagline || 'LAN';
-
-         if (nombreLol) {
-            displayName = `${nombreLol}#${tagLol}`;
-            subText = p.username;
+         if (tournament.game === "Clash Royale") {
+             // Mostramos el nombre y tag de Clash Royale
+             if (p.cr_name || p.cr_tag) {
+                 displayName = p.cr_name || p.username;
+                 subText = p.cr_tag || "FALTA TAG";
+             } else {
+                 displayName = p.username;
+                 subText = "NO VINCULADO (CR)";
+             }
          } else {
-            // Si tu BD tiene otra columna, aquí simplemente mostramos el usuario
-            displayName = p.username;
-            subText = "FALTA COLUMNA DE NOMBRE L.O.L.";
+             // Mostramos el nombre y tag de League of Legends
+             const nombreLol = p.riot_game_name || p.lol_name || p.summoner_name || p.riot_id;
+             const tagLol = p.riot_tagline || p.lol_tag || p.tagline || 'LAN';
+
+             if (nombreLol) {
+                displayName = `${nombreLol}#${tagLol}`;
+                subText = p.username;
+             } else {
+                displayName = p.username;
+                subText = "FALTA COLUMNA NOMBRE L.O.L.";
+             }
          }
       }
 
@@ -476,10 +497,10 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md pointer-events-auto" onClick={() => setSelectedMatch(null)}>
           <div className="bg-[#121620] border-2 border-blue-500 p-8 rounded-3xl max-w-md w-full shadow-[0_0_100px_rgba(59,130,246,0.2)]" onClick={e => e.stopPropagation()}>
             <h3 className="text-xl font-black uppercase text-white mb-2 text-center italic">Advanced Resolution</h3>
-            <p className="text-[10px] text-gray-500 text-center uppercase font-bold mb-8">Automatic Validation via Riot API</p>
+            <p className="text-[10px] text-gray-500 text-center uppercase font-bold mb-8">Automatic Validation via Developer API</p>
             
             <div className="space-y-4 mb-8">
-              <button onClick={(e) => scanRiotMatch(selectedMatch)} disabled={isScanning === selectedMatch.id} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-3">
+              <button onClick={(e) => scanMatchAPI(selectedMatch)} disabled={isScanning === selectedMatch.id} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-3">
                 {isScanning === selectedMatch.id ? <span className="animate-pulse">Analyzing History...</span> : <><ScanIcon /> Auto-Scan Recent History</>}
               </button>
               
@@ -488,13 +509,13 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                 <label className="text-[9px] font-black text-gray-500 uppercase absolute -top-2 left-4 bg-[#121620] px-2">Manual Uplink (Sniper Mode)</label>
                 <input 
                   type="text" 
-                  placeholder="MATCH ID (Ej: LA1_1234567)" 
+                  placeholder="MATCH ID (Opcional)" 
                   value={manualMatchId} 
                   onChange={e => setManualMatchId(e.target.value)} 
                   className="w-full bg-gray-950 border-2 border-gray-800 p-4 rounded-xl text-white font-bold text-xs outline-none focus:border-purple-500 mb-3"
                 />
                 <button 
-                  onClick={() => scanRiotMatch(selectedMatch, manualMatchId)} 
+                  onClick={() => scanMatchAPI(selectedMatch, manualMatchId)} 
                   disabled={!manualMatchId.trim() || isScanning === selectedMatch.id}
                   className="w-full bg-gray-800 hover:bg-purple-600 text-gray-400 hover:text-white py-3 rounded-xl font-black uppercase text-[9px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -610,9 +631,17 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                         </div>
                         <div className="flex flex-col">
                            <span className="font-black text-white uppercase italic tracking-tighter text-lg">{p.profiles?.username || "HUNTER DESCONOCIDO"}</span>
+                           
                            {/* MODO DE DEBUGEAR EN LA TABLA DE JUGADORES */}
-                           {p.profiles?.riot_puuid && !p.profiles?.riot_game_name && !p.profiles?.lol_name && !p.profiles?.summoner_name && <span className="text-[10px] text-gray-500 font-bold uppercase">FALTA COLUMNA DE NOMBRE</span>}
-                           {(p.profiles?.riot_game_name || p.profiles?.lol_name || p.profiles?.summoner_name) && <span className="text-[10px] text-gray-500 font-bold uppercase">{(p.profiles?.riot_game_name || p.profiles?.lol_name || p.profiles?.summoner_name)}#{(p.profiles?.riot_tagline || p.profiles?.lol_tag || p.profiles?.tagline || 'LAN')}</span>}
+                           {tournament.game === "Clash Royale" ? (
+                              <span className="text-[10px] text-gray-500 font-bold uppercase">{p.profiles?.cr_tag || "NO VINCULADO"}</span>
+                           ) : (
+                              <>
+                                 {p.profiles?.riot_puuid && !p.profiles?.riot_game_name && !p.profiles?.lol_name && !p.profiles?.summoner_name && <span className="text-[10px] text-gray-500 font-bold uppercase">FALTA COLUMNA DE NOMBRE</span>}
+                                 {(p.profiles?.riot_game_name || p.profiles?.lol_name || p.profiles?.summoner_name) && <span className="text-[10px] text-gray-500 font-bold uppercase">{(p.profiles?.riot_game_name || p.profiles?.lol_name || p.profiles?.summoner_name)}#{(p.profiles?.riot_tagline || p.profiles?.lol_tag || p.profiles?.tagline || 'LAN')}</span>}
+                              </>
+                           )}
+
                         </div>
                       </div>
                     )) : (
