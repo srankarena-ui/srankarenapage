@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { useState, useEffect } from "react";
+import { createClient } from "../../lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Modal from "../../components/Modal";
@@ -13,22 +13,28 @@ const XIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="curren
 
 export default function LoginPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [modal, setModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm?: () => void, type: 'alert' | 'confirm'}>({isOpen: false, title: '', message: '', type: 'alert'});
+  const [origin, setOrigin] = useState("");
+  const [modal, setModal] = useState({isOpen: false, title: '', message: '', type: 'alert' as 'alert' | 'confirm'});
 
-  // Función para Login Social
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
   const handleSocialAuth = async (provider: 'google' | 'discord' | 'twitter') => {
     setLoading(true);
+    setError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`, // Importante configurar esto en Supabase
-      }
+        redirectTo: `${origin}/auth/callback`,
+      },
     });
     if (error) setError(error.message);
     setLoading(false);
@@ -40,25 +46,17 @@ export default function LoginPage() {
     setError(null);
 
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
-      else router.push("/"); 
+      else router.push("/");
     } else {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { username: username },
-        },
+        options: { data: { username } },
       });
-      
       if (error) setError(error.message);
-      else {
-        setModal({isOpen: true, title: 'Success', message: 'Awakening successful! Please check your email to confirm.', type: 'alert'});
-      }
+      else setModal({ isOpen: true, title: 'Éxito', message: '¡Despertar completado! Revisa tu email para confirmar.', type: 'alert' });
     }
     setLoading(false);
   };
@@ -69,66 +67,50 @@ export default function LoginPage() {
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent"></div>
 
         <div className="text-center mb-8">
-          <Link href="/" className="text-2xl font-black text-purple-500 tracking-wider">
-            S-RANK ARENA
-          </Link>
-          <p className="text-[10px] text-gray-500 uppercase font-black tracking-[0.3em] mt-2">Authentication Terminal</p>
+          <Link href="/" className="text-2xl font-black text-purple-500 tracking-wider">S-RANK ARENA</Link>
+          <p className="text-[10px] text-gray-500 uppercase font-black tracking-[0.3em] mt-2">Terminal de Autenticación</p>
         </div>
 
-        {/* SECCIÓN DE LOGIN SOCIAL */}
         <div className="grid grid-cols-3 gap-3 mb-8">
-          <button onClick={() => handleSocialAuth('google')} className="flex items-center justify-center py-3 bg-gray-950 border border-gray-800 rounded-xl hover:bg-gray-800 transition-all hover:border-gray-600 group">
-            <GoogleIcon />
-          </button>
-          <button onClick={() => handleSocialAuth('discord')} className="flex items-center justify-center py-3 bg-[#5865F2]/10 border border-[#5865F2]/30 rounded-xl hover:bg-[#5865F2] transition-all group">
-            <DiscordIcon />
-          </button>
-          <button onClick={() => handleSocialAuth('twitter')} className="flex items-center justify-center py-3 bg-gray-950 border border-gray-800 rounded-xl hover:bg-white hover:text-black transition-all group">
-            <XIcon />
-          </button>
+          <button onClick={() => handleSocialAuth('google')} className="flex items-center justify-center py-3 bg-gray-950 border border-gray-800 rounded-xl hover:bg-gray-800 transition-all group"><GoogleIcon /></button>
+          <button onClick={() => handleSocialAuth('discord')} className="flex items-center justify-center py-3 bg-[#5865F2]/10 border border-[#5865F2]/30 rounded-xl hover:bg-[#5865F2] transition-all group"><DiscordIcon /></button>
+          <button onClick={() => handleSocialAuth('twitter')} className="flex items-center justify-center py-3 bg-gray-950 border border-gray-800 rounded-xl hover:bg-white hover:text-black transition-all group"><XIcon /></button>
         </div>
 
         <div className="relative flex items-center justify-center mb-8">
           <div className="w-full h-[1px] bg-gray-800"></div>
-          <span className="absolute bg-gray-900 px-4 text-[10px] font-black text-gray-600 uppercase tracking-widest">Or Use Credentials</span>
+          <span className="absolute bg-gray-900 px-4 text-[10px] font-black text-gray-600 uppercase tracking-widest">O usa credenciales</span>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-xl mb-6 text-xs text-center font-bold">
-            {error}
-          </div>
-        )}
+        {error && <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-xl mb-6 text-xs text-center font-bold">{error}</div>}
 
         <form onSubmit={handleAuth} className="space-y-4">
           {!isLogin && (
             <div>
-              <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Hunter Alias</label>
-              <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-all" placeholder="SungJinWoo" />
+              <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Alias del Hunter</label>
+              <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500" placeholder="SungJinWoo" />
             </div>
           )}
-
           <div>
-            <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Secure Email</label>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-all" placeholder="hunter@guild.com" />
+            <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Email Seguro</label>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500" placeholder="hunter@gremio.com" />
           </div>
-
           <div>
-            <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Access Key</label>
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-all" placeholder="••••••••" />
+            <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Llave de Acceso</label>
+            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500" placeholder="••••••••" />
           </div>
-
-          <button type="submit" disabled={loading} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black text-[11px] uppercase tracking-[0.2em] py-4 rounded-xl mt-6 transition-all shadow-[0_10px_20px_rgba(168,85,247,0.2)] disabled:opacity-50">
-            {loading ? "Synchronizing..." : (isLogin ? "Uplink to Arena" : "Begin Awakening")}
+          <button type="submit" disabled={loading} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black text-[11px] uppercase tracking-[0.2em] py-4 rounded-xl mt-6 transition-all disabled:opacity-50">
+            {loading ? "Sincronizando..." : (isLogin ? "Uplink a la Arena" : "Iniciar Despertar")}
           </button>
         </form>
 
         <div className="mt-8 text-center">
-          <button onClick={() => { setIsLogin(!isLogin); setError(null); }} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-purple-400 transition-colors">
-            {isLogin ? "Don't have a Hunter License? Register" : "Already an Awakened Hunter? Login"}
+          <button onClick={() => { setIsLogin(!isLogin); setError(null); }} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-purple-400">
+            {isLogin ? "¿No tienes licencia? Regístrate" : "¿Ya eres un Hunter? Logueate"}
           </button>
         </div>
       </div>
-      <Modal isOpen={modal.isOpen} title={modal.title} message={modal.message} onClose={() => setModal({...modal, isOpen: false})} onConfirm={modal.onConfirm} type={modal.type} />
+      <Modal isOpen={modal.isOpen} title={modal.title} message={modal.message} onClose={() => setModal({...modal, isOpen: false})} type={modal.type} />
     </main>
   );
 }
