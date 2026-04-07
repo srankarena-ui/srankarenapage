@@ -40,13 +40,13 @@ export async function POST(request: Request) {
     const cleanTag2 = p2.cr_tag.replace('#', '').toUpperCase();
 
     // 2. Llamamos al Battlelog usando el Proxy para evitar bloqueos de IP
-    const response = await fetch(`https://proxy.royaleapi.dev/v1/players/%23${cleanTag1}/battlelog`, {
-        headers: { 
-            'Authorization': `Bearer ${CR_API_KEY}`,
-            'Accept': 'application/json'
-        },
-        cache: 'no-store'
-    });
+   const response = await fetch(`https://api.clashroyale.com/v1/players/%23${cleanTag1}/battlelog`, {
+    headers: { 
+        'Authorization': `Bearer ${process.env.CR_API_KEY}`,
+        'Accept': 'application/json'
+    },
+    cache: 'no-store'
+});
 
     if (!response.ok) {
         return NextResponse.json({ error: `Supercell Uplink Fallido (Status: ${response.status})` }, { status: 500 });
