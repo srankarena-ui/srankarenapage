@@ -322,7 +322,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       const newP2Score = data.winner_id === match.player2_id ? (match.player2_score || 0) + 1 : (match.player2_score || 0);
 
       setScoreModal({ match, p1Score: newP1Score, p2Score: newP2Score });
-      setSelectedMatch(null); // Cerramos el modal de resolución si estaba abierto
+      setSelectedMatch(null); 
 
     } catch (err) {
       alert("Error de uplink con el escáner táctico.");
@@ -345,21 +345,23 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       setScoreModal({ match, p1Score: match.player1_score || 0, p2Score: match.player2_score || 0 });
     };
 
-    // FUNCIÓN DE RENDERIZADO DEL JUGADOR PARA MOSTRAR EL PUUID O NOMBRE
+    // FUNCIÓN DE RENDERIZADO CORREGIDA PARA NOMBRES
     const renderPlayer = (p: any, score: number, isWinner: boolean, side: 1|2) => {
       let displayName = "--- TBD ---";
       let subText = "SIN VINCULAR";
 
       if (p) {
-         if (p.riot_game_name) {
-            displayName = `${p.riot_game_name}#${p.riot_tagline || 'LAN'}`;
+         // Buscamos el nombre de Riot en múltiples columnas posibles comunes
+         const nombreLol = p.riot_game_name || p.lol_name || p.summoner_name || p.riot_id;
+         const tagLol = p.riot_tagline || p.lol_tag || p.tagline || 'LAN';
+
+         if (nombreLol) {
+            displayName = `${nombreLol}#${tagLol}`;
             subText = p.username;
-         } else if (p.riot_puuid) {
-            // SI NO HAY NOMBRE GUARDADO PERO SÍ HAY PUUID, LO MOSTRAMOS PARA DEBUGEAR
-            displayName = p.username;
-            subText = `PUUID: ${p.riot_puuid.substring(0, 12)}...`;
          } else {
+            // Si tu BD tiene otra columna, aquí simplemente mostramos el usuario
             displayName = p.username;
+            subText = "FALTA COLUMNA DE NOMBRE L.O.L.";
          }
       }
 
@@ -369,7 +371,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
             <span className={`text-[12px] font-black uppercase italic ${isWinner ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}>
               {displayName}
             </span>
-            <span className={`text-[9px] font-bold uppercase -mt-1 ${p?.riot_puuid && !p?.riot_game_name ? 'text-green-500' : 'text-gray-500'}`}>
+            <span className="text-[9px] font-bold uppercase -mt-1 text-gray-500">
               {subText}
             </span>
           </div>
@@ -609,8 +611,8 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                         <div className="flex flex-col">
                            <span className="font-black text-white uppercase italic tracking-tighter text-lg">{p.profiles?.username || "HUNTER DESCONOCIDO"}</span>
                            {/* MODO DE DEBUGEAR EN LA TABLA DE JUGADORES */}
-                           {p.profiles?.riot_puuid && !p.profiles?.riot_game_name && <span className="text-[10px] text-green-500 font-bold uppercase">PUUID VINCULADO</span>}
-                           {p.profiles?.riot_game_name && <span className="text-[10px] text-gray-500 font-bold uppercase">{p.profiles.riot_game_name}#{p.profiles.riot_tagline}</span>}
+                           {p.profiles?.riot_puuid && !p.profiles?.riot_game_name && !p.profiles?.lol_name && !p.profiles?.summoner_name && <span className="text-[10px] text-gray-500 font-bold uppercase">FALTA COLUMNA DE NOMBRE</span>}
+                           {(p.profiles?.riot_game_name || p.profiles?.lol_name || p.profiles?.summoner_name) && <span className="text-[10px] text-gray-500 font-bold uppercase">{(p.profiles?.riot_game_name || p.profiles?.lol_name || p.profiles?.summoner_name)}#{(p.profiles?.riot_tagline || p.profiles?.lol_tag || p.profiles?.tagline || 'LAN')}</span>}
                         </div>
                       </div>
                     )) : (
