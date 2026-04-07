@@ -67,7 +67,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
     <main className="min-h-screen bg-[#0b0e14] text-gray-200 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto">
         
-        {/* HEADER (Tu diseño original mejorado) */}
+        {/* HEADER */}
         <div className="bg-[#121620] border border-gray-800 rounded-[2.5rem] p-8 md:p-12 mb-8 relative overflow-hidden shadow-2xl">
           <div className="absolute -right-4 -top-4 opacity-5 pointer-events-none text-[12rem] font-black italic text-purple-500">
             {profile.rank?.split(' ')[1] || 'F'}
@@ -85,7 +85,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
               </div>
             </div>
             
-            {/* BOTÓN SYNC (Nuevo) */}
+            {/* BOTÓN SYNC */}
             {profile.riot_puuid && (
               <button 
                 onClick={handleSync}
@@ -99,7 +99,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* PANEL IZQUIERDO: PROGRESO & NEXO (Tus componentes originales) */}
+          {/* PANEL IZQUIERDO: PROGRESO & NEXO */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-[#121620] border border-gray-800 rounded-[2rem] p-8 shadow-xl">
               <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-8 italic">Progreso Arena</h3>
@@ -117,10 +117,12 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
 
             <div className="bg-[#121620] border border-gray-800 rounded-[2rem] p-8 shadow-xl">
               <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-8 italic">Nexus de Juegos</h3>
+              
+              {/* BLOQUE LEAGUE OF LEGENDS */}
               {profile.riot_puuid ? (
-                <div className="space-y-4">
+                <div className="space-y-4 mb-4">
                   <div className="bg-[#0b0e14] p-6 rounded-2xl border border-gray-800 group hover:border-purple-500 transition-all shadow-inner">
-                    <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Enlace Neural LAN</p>
+                    <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Enlace Neural LOL</p>
                     <p className="text-xl font-black text-white mb-6 uppercase italic tracking-tight">{profile.riot_gamename} <span className="text-gray-700">#{profile.riot_tagline}</span></p>
                     <Link href={`/lol/${profile.riot_puuid}`} className="block w-full py-3 bg-gray-800 hover:bg-purple-600 text-[10px] font-black text-center uppercase tracking-widest rounded-xl transition-all text-white shadow-lg">
                       Analizar Combatiente &rarr;
@@ -128,11 +130,28 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-10 border-2 border-dashed border-gray-800 rounded-[2rem]">
-                  <p className="text-[10px] font-black text-gray-600 uppercase mb-4 tracking-widest italic opacity-50">Sin Enlace Detectado</p>
+                <div className="text-center py-6 mb-4 border-2 border-dashed border-gray-800 rounded-[2rem]">
+                  <p className="text-[10px] font-black text-gray-600 uppercase mb-4 tracking-widest italic opacity-50">Sin Enlace LOL Detectado</p>
                   <Link href="/settings" className="text-[10px] font-black text-purple-500 uppercase underline tracking-widest hover:text-white transition-colors">Vincular Riot ID</Link>
                 </div>
               )}
+
+              {/* BLOQUE CLASH ROYALE */}
+              {profile.cr_tag ? (
+                <div className="space-y-4">
+                  <div className="bg-[#0b0e14] p-6 rounded-2xl border border-gray-800 group hover:border-blue-500 transition-all shadow-inner">
+                    <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Enlace Neural CR</p>
+                    <p className="text-xl font-black text-white uppercase italic tracking-tight mb-2">{profile.cr_name || "Clash Royale"}</p>
+                    <p className="text-[11px] font-bold text-gray-500 mb-6">{profile.cr_tag}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 border-2 border-dashed border-gray-800 rounded-[2rem]">
+                  <p className="text-[10px] font-black text-gray-600 uppercase mb-4 tracking-widest italic opacity-50">Sin Enlace CR Detectado</p>
+                  <Link href="/settings" className="text-[10px] font-black text-blue-500 uppercase underline tracking-widest hover:text-white transition-colors">Vincular CR Tag</Link>
+                </div>
+              )}
+
             </div>
           </div>
 
