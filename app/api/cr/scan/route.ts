@@ -4,91 +4,65 @@ import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 
 const CR_API_KEY = process.env.CR_API_KEY; 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 export async function POST(request: Request) {
-  console.log("--- INICIANDO ESCANEO DE CLASH ROYALE ---");
-  
-  if (!CR_API_KEY) {
-    console.error("ERROR: Falta CR_API_KEY en las variables de entorno de Vercel.");
-    return NextResponse.json({ error: "Falta la API Key de Clash Royale." }, { status: 500 });
-  }
-
   try {
-    const body = await request.json();
-    const { player1_id, player2_id } = body;
-    console.log(`Buscando duelo entre: ${player1_id} vs ${player2_id}`);
+    const { matchId, player1_id, player2_id } = await request.json();
 
-    // 1. Buscamos los Tags en Supabase
-    const { data: profiles, error: dbError } = await supabase
-      .from('profiles')
-      .select('id, cr_tag')
-      .in('id', [player1_id, player2_id]);
+    // 1. Obtener datos del match y perfiles
+    const { data: matchData } = await supabase.from('tournament_matches').select('created_at, updated_at').eq('id', matchId).single();
+    const { data: profiles } = await supabase.from('profiles').select('id, cr_tag').in('id', [player1_id, player2_id]);
 
-    if (dbError || !profiles || profiles.length !== 2) {
-      console.error("ERROR SUPABASE:", dbError || "No se encontraron 2 perfiles.");
-      return NextResponse.json({ error: "No se encontraron los perfiles o faltan datos." }, { status: 404 });
-    }
-
-    const p1 = profiles.find(p => p.id === player1_id);
-    const p2 = profiles.find(p => p.id === player2_id);
+    const p1 = profiles?.find(p => p.id === player1_id);
+    const p2 = profiles?.find(p => p.id === player2_id);
+    const matchStartTime = new Date(matchData.updated_at || matchData.created_at).getTime();
 
     const cleanTag1 = p1.cr_tag.replace('#', '').toUpperCase();
     const cleanTag2 = p2.cr_tag.replace('#', '').toUpperCase();
-    console.log(`Tags detectados: #${cleanTag1} y #${cleanTag2}`);
 
-    // 2. Llamada al Proxy (RoyaleAPI)
-    // Es vital usar el proxy porque las IPs de Vercel están baneadas por Supercell
-    console.log("Llamando a RoyaleAPI Proxy...");
+    // 2. Llamada a Supercell
     const response = await fetch(`https://proxy.royaleapi.dev/v1/players/%23${cleanTag1}/battlelog`, {
-        headers: { 
-            'Authorization': `Bearer ${CR_API_KEY}`,
-            'Accept': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${CR_API_KEY}` },
         cache: 'no-store'
     });
 
-    if (!response.ok) {
-        const errorData = await response.text();
-        console.error(`ERROR DE SUPERCELL (${response.status}):`, errorData);
-        return NextResponse.json({ error: `Supercell rechazó la llave (Status: ${response.status})` }, { status: response.status });
-    }
-
     const battleLog = await response.json();
-    let foundBattle = null;
+    
+    // 3. Filtrar por batallas NUEVAS (después de la creación del match)
+    const validBattles = battleLog.filter((battle: any) => {
+        const battleTime = parseCRTime(battle.battleTime);
+        const isAgainstOpponent = battle.opponent?.[0]?.tag?.replace('#','') === cleanTag2;
+        return isAgainstOpponent && battle.type === 'friendly' && battleTime > matchStartTime;
+    });
 
-    for (const battle of battleLog) {
-        if (battle.type === 'friendly' && battle.opponent && battle.opponent.length > 0) {
-            const opponentTag = battle.opponent[0].tag.replace('#', '');
-            if (opponentTag === cleanTag2) {
-                foundBattle = battle;
-                break;
-            }
-        }
+    if (validBattles.length === 0) {
+        return NextResponse.json({ error: "No se han detectado batallas nuevas todavía." }, { status: 404 });
     }
 
-    if (!foundBattle) {
-        console.log("No se encontró batalla reciente entre estos jugadores.");
-        return NextResponse.json({ error: "Batalla no encontrada en el historial." }, { status: 404 });
-    }
-
-    const p1Crowns = foundBattle.team[0].crowns;
-    const p2Crowns = foundBattle.opponent[0].crowns;
-    const winnerId = p1Crowns > p2Crowns ? player1_id : player2_id;
-
-    console.log(`Victoria detectada: ${winnerId} (${p1Crowns}-${p2Crowns})`);
+    // Tomamos la más reciente de las válidas
+    const latestBattle = validBattles[0];
+    const winnerId = latestBattle.team[0].crowns > latestBattle.opponent[0].crowns ? player1_id : player2_id;
 
     return NextResponse.json({ 
         success: true, 
-        winner_id: winnerId, 
-        match_id: foundBattle.battleTime 
+        winner_id: winnerId,
+        battleTime: latestBattle.battleTime,
+        crowns: `${latestBattle.team[0].crowns}-${latestBattle.opponent[0].crowns}`
     });
 
   } catch (error: any) {
-    console.error("FALLO CRÍTICO EN EL SERVIDOR:", error.message);
-    return NextResponse.json({ error: "Fallo de Sistema: " + error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+// Función para convertir el formato de tiempo raro de Supercell (ISO8601 comprimido) a Timestamp
+function parseCRTime(crTime: string) {
+    const y = crTime.substring(0, 4);
+    const m = crTime.substring(4, 6);
+    const d = crTime.substring(6, 8);
+    const th = crTime.substring(9, 11);
+    const tm = crTime.substring(11, 13);
+    const ts = crTime.substring(13, 15);
+    return new Date(`${y}-${m}-${d}T${th}:${tm}:${ts}Z`).getTime();
 }

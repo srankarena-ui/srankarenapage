@@ -17,7 +17,6 @@ const UserIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="non
 const TrophyIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>;
 const ScanIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.5-1.5"/></svg>;
 const GenerateIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275z"/></svg>;
-const SwordsIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 1-1"/><path d="M14.5 6.5 18 3h3v3l-11.5 11.5"/><path d="m5 14 4 4"/><path d="m3 20 1-1"/><path d="m3 21 1-1"/></svg>;
 
 export default function TournamentBracketPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -30,7 +29,9 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   const [tournament, setTournament] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [matches, setMatches] = useState<TournamentMatch[]>([]);
+  
   const [isScanning, setIsScanning] = useState<string | null>(null);
+  const [isScanningGlobal, setIsScanningGlobal] = useState(false); // NUEVO ESTADO PARA EL RADAR
   const [isGenerating, setIsGenerating] = useState(false);
   
   // ESTADOS DE LA LANDING PAGE
@@ -108,7 +109,81 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   };
 
   // ==========================================
-  // FUNCIONES DE REGISTRO (MODO DEBUG + RESTRICCIONES)
+  // VIGILANTE AUTOMÁTICO (RADAR CADA 5 SEG)
+  // ==========================================
+  useEffect(() => {
+    if (activeTab !== "bracket" || !isAdmin || !tournament) return;
+
+    const interval = setInterval(async () => {
+      // Solo busca batallas para enfrentamientos pendientes que ya tengan a los 2 jugadores listos
+      const pendingMatches = matches.filter(m => m.status === "pending" && m.player1_id && m.player2_id);
+      if (pendingMatches.length === 0) return;
+
+      setIsScanningGlobal(true);
+      for (const match of pendingMatches) {
+        try {
+          const apiEndpoint = tournament.game === "Clash Royale" ? "/api/cr/scan" : "/api/riot/scan";
+          const res = await fetch(apiEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ matchId: match.id, player1_id: match.player1_id, player2_id: match.player2_id })
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            // Si la API encuentra una batalla nueva, procesamos el resultado
+            await autoResolve(match, data.winner_id);
+          }
+        } catch (e) {
+          console.error("Radar Uplink Error:", e);
+        }
+      }
+      setIsScanningGlobal(false);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, matches, isAdmin, tournament]);
+
+  const autoResolve = async (match: TournamentMatch, winnerId: string) => {
+    const p1Score = winnerId === match.player1_id ? (match.player1_score || 0) + 1 : (match.player1_score || 0);
+    const p2Score = winnerId === match.player2_id ? (match.player2_score || 0) + 1 : (match.player2_score || 0);
+    
+    const format = tournament.series_format || "Bo1";
+    const winsNeeded = format === "Bo3" ? 2 : (format === "Bo5" ? 3 : 1);
+    const isMatchOver = p1Score >= winsNeeded || p2Score >= winsNeeded;
+
+    // Actualizamos el match y forzamos update del updated_at
+    await supabase.from("tournament_matches").update({
+      player1_score: p1Score,
+      player2_score: p2Score,
+      winner_id: isMatchOver ? winnerId : null,
+      status: isMatchOver ? "finished" : "pending",
+      updated_at: new Date().toISOString()
+    }).eq("id", match.id);
+
+    if (isMatchOver) {
+      const nextRound = match.round_number + 1;
+      const nextMatchNum = Math.ceil(match.match_number / 2);
+      const isNextP1 = match.match_number % 2 !== 0;
+
+      const { data: nextMatch } = await supabase.from("tournament_matches")
+        .select("*")
+        .eq("tournament_id", tournamentId)
+        .eq("round_number", nextRound)
+        .eq("match_number", nextMatchNum)
+        .single();
+      
+      if (nextMatch) {
+        await supabase.from("tournament_matches").update(
+          isNextP1 ? { player1_id: winnerId } : { player2_id: winnerId }
+        ).eq("id", nextMatch.id);
+      }
+    }
+    refreshBracket();
+  };
+
+  // ==========================================
+  // FUNCIONES DE REGISTRO
   // ==========================================
   const handleRegister = async () => {
     setIsRegistering(true);
@@ -141,7 +216,6 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         return;
       }
 
-      // Candados de seguridad dependiendo del juego del torneo
       if (tournament.game === "League of Legends" && !profileData.riot_puuid) {
          alert("¡Alto ahí, Hunter! 🛑\n\nEste torneo es de League of Legends. Necesitas vincular tu cuenta de Riot en tu perfil para poder entrar a la Arena.");
          setIsRegistering(false);
@@ -263,7 +337,13 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       if (p1Score >= neededToWin) winnerId = match.player1_id;
       else if (p2Score >= neededToWin) winnerId = match.player2_id;
 
-      await supabase.from("tournament_matches").update({ player1_score: p1Score, player2_score: p2Score, winner_id: winnerId, status: winnerId ? "finished" : "pending" }).eq("id", match.id);
+      await supabase.from("tournament_matches").update({ 
+          player1_score: p1Score, 
+          player2_score: p2Score, 
+          winner_id: winnerId, 
+          status: winnerId ? "finished" : "pending",
+          updated_at: new Date().toISOString()
+      }).eq("id", match.id);
 
       if (winnerId) {
         const nextRound = match.round_number + 1; const nextMatchNum = Math.ceil(match.match_number / 2); const isNextP1 = match.match_number % 2 !== 0;
@@ -295,7 +375,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   };
 
   // ==========================================
-  // LA MAGIA DEL ESCÁNER AUTOMÁTICO (CLASH ROYALE / LOL)
+  // LA MAGIA DEL ESCÁNER MANUAL (Para Override)
   // ==========================================
   const scanMatchAPI = async (match: TournamentMatch, customId?: string) => {
     if (!isAdmin || isScanning) return;
@@ -327,45 +407,16 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         return;
       }
 
-      // --- LOGICA DE GUARDADO AUTOMÁTICO (NUEVO) ---
-      const winnerId = data.winner_id;
-      // Asignamos 1 punto al ganador y 0 al perdedor para la DB
-      const p1FinalScore = winnerId === match.player1_id ? 1 : 0;
-      const p2FinalScore = winnerId === match.player2_id ? 1 : 0;
-
-      // 1. Actualizar partida actual en la DB
-      await supabase.from("tournament_matches").update({ 
-        player1_score: p1FinalScore, 
-        player2_score: p2FinalScore, 
-        winner_id: winnerId, 
-        status: "finished" 
-      }).eq("id", match.id);
-
-      // 2. Lógica de avance automático al siguiente Match
-      const nextRound = match.round_number + 1;
-      const nextMatchNum = Math.ceil(match.match_number / 2);
-      const isNextP1 = match.match_number % 2 !== 0;
-
-      const { data: nextMatch } = await supabase.from("tournament_matches")
-        .select("*")
-        .eq("tournament_id", tournamentId)
-        .eq("round_number", nextRound)
-        .eq("match_number", nextMatchNum)
-        .single();
-
-      if (nextMatch) {
-        await supabase.from("tournament_matches").update(
-          isNextP1 ? { player1_id: winnerId } : { player2_id: winnerId }
-        ).eq("id", nextMatch.id);
-      }
-
-      alert(`✅ ¡Transmisión Encontrada y Guardada! \nGanador detectado: ${winnerId === match.player1_id ? 'Hunter 1' : 'Hunter 2'}`);
+      alert(`✅ ¡Transmisión Encontrada! \nGanador detectado: ${data.winner_id === match.player1_id ? 'Hunter 1' : 'Hunter 2'}\n\nAbre el panel de score para confirmar la victoria.`);
       
-      setSelectedMatch(null); 
-      refreshBracket();
+      const newP1Score = data.winner_id === match.player1_id ? (match.player1_score || 0) + 1 : (match.player1_score || 0);
+      const newP2Score = data.winner_id === match.player2_id ? (match.player2_score || 0) + 1 : (match.player2_score || 0);
 
-    } catch (err: any) {
-      alert("Error de uplink con el escáner táctico: " + err.message);
+      setScoreModal({ match, p1Score: newP1Score, p2Score: newP2Score });
+      setSelectedMatch(null); 
+
+    } catch (err) {
+      alert("Error de uplink con el escáner táctico.");
     }
     setIsScanning(null);
   };
@@ -385,7 +436,6 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       setScoreModal({ match, p1Score: match.player1_score || 0, p2Score: match.player2_score || 0 });
     };
 
-    // FUNCIÓN DE RENDERIZADO DUAL EXACTA (LOL / CR)
     const renderPlayer = (p: any, score: number, isWinner: boolean, side: 1|2) => {
       let displayName = "--- TBD ---";
       let subText = "SIN VINCULAR";
@@ -405,7 +455,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                 subText = p.username;
              } else if (p.riot_puuid) {
                 displayName = p.username;
-                subText = "PUUID VINCULADO";
+                subText = "FALTA GAME_NAME";
              } else {
                 displayName = p.username;
                 subText = "NO VINCULADO (LOL)";
@@ -415,7 +465,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
 
       return (
         <div className={`p-4 flex justify-between items-center ${isWinner ? 'bg-purple-600/20' : ''}`}>
-          <div className="flex flex-col truncate pr-2 flex-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); isAdmin && !isFinished && setSeedingSlot({ matchId: match.id, playerSide: side }); }}>
+          <div className="flex flex-col truncate pr-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); isAdmin && !isFinished && setSeedingSlot({ matchId: match.id, playerSide: side }); }}>
             <span className={`text-[12px] font-black uppercase italic ${isWinner ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}>
               {displayName}
             </span>
@@ -423,16 +473,6 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
               {subText}
             </span>
           </div>
-
-          {/* BOTÓN DE DESAFÍO DIRECTO (Deep Link CR) */}
-          {p && tournament.game === "Clash Royale" && !isFinished && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); window.open(`clashroyale://playerInfo?id=${p.cr_tag?.replace('#','')}`, '_blank'); }}
-              className="mr-3 text-blue-500 hover:text-blue-400 transition-colors"
-              title="Desafiar Hunter"
-            ><SwordsIcon /></button>
-          )}
-
           <button 
             onClick={openScoreModal} 
             disabled={!isAdmin || isFinished || (!p1 && !p2)} 
@@ -453,7 +493,6 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
             <div className="h-[1px] w-full bg-gray-800"></div>
             {renderPlayer(p2, match.player2_score, match.winner_id === match.player2_id, 2)}
 
-            {/* BOTÓN PARA ABRIR RESOLUCIÓN AVANZADA */}
             {isAdmin && !isFinished && (p1 && p2) && (
               <div className="flex border-t border-gray-800 relative z-10">
                 <button 
@@ -534,12 +573,11 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md pointer-events-auto" onClick={() => setSelectedMatch(null)}>
           <div className="bg-[#121620] border-2 border-blue-500 p-8 rounded-3xl max-w-md w-full shadow-[0_0_100px_rgba(59,130,246,0.2)]" onClick={e => e.stopPropagation()}>
             <h3 className="text-xl font-black uppercase text-white mb-2 text-center italic">Advanced Resolution</h3>
-            <p className="text-[10px] text-gray-500 text-center uppercase font-bold mb-8">Automatic Validation via API</p>
+            <p className="text-[10px] text-gray-500 text-center uppercase font-bold mb-8">Automatic Validation via Developer API</p>
             
             <div className="space-y-4 mb-8">
-              {/* BOTÓN ACTUALIZADO PARA AUTO-GUARDADO */}
               <button onClick={(e) => scanMatchAPI(selectedMatch)} disabled={isScanning === selectedMatch.id} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-3">
-                {isScanning === selectedMatch.id ? <span className="animate-pulse">Analyzing & Saving...</span> : <><ScanIcon /> Auto-Scan & Auto-Confirm</>}
+                {isScanning === selectedMatch.id ? <span className="animate-pulse">Analyzing History...</span> : <><ScanIcon /> Auto-Scan Recent History</>}
               </button>
               
               {/* FRANCOTIRADOR */}
@@ -557,7 +595,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                   disabled={!manualMatchId.trim() || isScanning === selectedMatch.id}
                   className="w-full bg-gray-800 hover:bg-purple-600 text-gray-400 hover:text-white py-3 rounded-xl font-black uppercase text-[9px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Force Auto-Save with ID
+                  Force Victory with ID
                 </button>
               </div>
 
@@ -693,6 +731,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                   </div>
                 )}
               </div>
+              {/* SIDEBAR DE INTEL PARA TABS NORMALES */}
               <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-8 self-start">
                   <div className="bg-[#121620] p-8 rounded-[2.5rem] border border-gray-800 shadow-2xl">
                     <h3 className="text-[10px] font-black uppercase text-purple-500 tracking-[0.5em] italic mb-8">Uplink Intelligence</h3>
@@ -715,25 +754,58 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
           )}
         </div>
 
-        {/* BRACKET TAB */}
+        {/* ==========================================
+            TAB DEL BRACKET
+            ========================================== */}
         {activeTab === "bracket" && (
           <div className="animate-in fade-in duration-500 w-full px-4 md:px-8 relative z-10">
+            
             <div className="w-full bg-[#121620] p-8 md:p-10 rounded-[2.5rem] border border-purple-500/10 shadow-2xl mb-12 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 relative z-0">
                 <div className="flex-1">
                   <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-3 inline-block">LIVE OPERATIONAL INTEL</span>
-                  <div className="flex flex-wrap gap-x-8 gap-y-4 items-center bg-gray-950 p-6 rounded-[2rem] border border-gray-800 shadow-inner">
-                      <div className="flex items-center gap-2.5"><span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span><span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Server: <span className="text-white not-italic">{tournament.region || "Global"}</span></span></div>
-                      <div className="flex items-center gap-2.5"><span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span><span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Map: <span className="text-white not-italic">{tournament.map || "Standard"}</span></span></div>
-                      <div className="flex items-center gap-2.5"><span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span><span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Format: <span className="text-purple-400 font-black">{tournament.series_format || "Bo1"}</span></span></div>
+                  
+                  {/* ALERTA DE RADAR (SOLO VISIBLE CUANDO ESCANEA) */}
+                  {isScanningGlobal && (
+                    <span className="ml-4 bg-blue-600/10 text-blue-500 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest animate-pulse border border-blue-500/20">
+                      Radar Active
+                    </span>
+                  )}
+
+                  <div className="flex flex-wrap gap-x-8 gap-y-4 items-center bg-gray-950 p-6 rounded-[2rem] border border-gray-800 shadow-inner mt-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Server: <span className="text-white not-italic">{tournament.region || "Global"}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Map: <span className="text-white not-italic">{tournament.map || "Standard"}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Format: <span className="text-purple-400 font-black">{tournament.series_format || "Bo1"}</span></span>
+                      </div>
                       <span className="text-gray-800">|</span>
-                      <div className="flex items-center gap-2.5 bg-gray-900 border border-gray-700 px-3 py-1.5 rounded-full"><UserIcon /> <span className="text-[11px] font-black text-white uppercase italic">{participants.length} Active Units</span></div>
+                      <div className="flex items-center gap-2.5 bg-gray-900 border border-gray-700 px-3 py-1.5 rounded-full">
+                        <UserIcon /> <span className="text-[11px] font-black text-white uppercase italic">{participants.length} Active Units</span>
+                      </div>
                   </div>
                 </div>
+                
                 {isAdmin && (
                   <div className="flex flex-wrap items-center gap-3.5 bg-gray-950 p-5 rounded-[2rem] border border-gray-800 shadow-xl shrink-0">
-                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert("Operational Link Copied!"); }} className="flex items-center gap-2 bg-gray-900 text-gray-400 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all border border-gray-700"><LinkIcon /> Share Link</button>
-                    <button onClick={generateBracket} disabled={isGenerating || participants.length < 2} className="flex items-center gap-2 bg-purple-600 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-purple-500 transition-all shadow-xl shadow-purple-900/40 disabled:bg-gray-800 disabled:text-gray-600"><GenerateIcon /> {matches.length > 0 ? (isGenerating ? "Uplinking..." : "Reroll Map") : (isGenerating ? "Initializing..." : "Initialize Map")}</button>
-                    {matches.length > 0 && (<button onClick={purgeBracket} disabled={isGenerating} className="flex items-center gap-2 bg-red-950 text-red-500 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-900 transition-all border border-red-800 shadow-inner"><TrashIcon /> Purge Map</button>)}
+                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert("Operational Link Copied!"); }} className="flex items-center gap-2 bg-gray-900 text-gray-400 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all border border-gray-700">
+                      <LinkIcon /> Share Link
+                    </button>
+                    
+                    <button onClick={generateBracket} disabled={isGenerating || participants.length < 2} className="flex items-center gap-2 bg-purple-600 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-purple-500 transition-all shadow-xl shadow-purple-900/40 disabled:bg-gray-800 disabled:text-gray-600">
+                      <GenerateIcon /> {matches.length > 0 ? (isGenerating ? "Uplinking..." : "Reroll Map") : (isGenerating ? "Initializing..." : "Initialize Map")}
+                    </button>
+
+                    {matches.length > 0 && (
+                      <button onClick={purgeBracket} disabled={isGenerating} className="flex items-center gap-2 bg-red-950 text-red-500 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-900 transition-all border border-red-800 shadow-inner">
+                        <TrashIcon /> Purge Map
+                      </button>
+                    )}
                   </div>
                 )}
             </div>
@@ -747,13 +819,23 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center border-4 border-dashed border-gray-900/30 rounded-[3rem] bg-[#0b0e14]/20 p-10 md:p-20 text-center space-y-8 shadow-inner">
                     <p className="text-gray-700 text-lg font-black uppercase tracking-[0.6em] italic leading-relaxed">Tactical data stream offline.<br/>Bracket awaiting admin uplink.</p>
+                    
                     <div className="flex gap-4 overflow-x-auto max-w-full pb-4 px-4 bg-gray-950 p-6 rounded-[2rem] border border-gray-800">
-                        {participants.map(p => (<div key={p.id} className="bg-[#0b0e14] border border-gray-800 px-6 py-3 rounded-xl text-[10px] font-black uppercase italic text-gray-500 shrink-0 shadow-lg">{p.profiles?.username || "HUNTER DESCONOCIDO"}</div>))}
+                        {participants.map(p => (
+                            <div key={p.id} className="bg-[#0b0e14] border border-gray-800 px-6 py-3 rounded-xl text-[10px] font-black uppercase italic text-gray-500 shrink-0 shadow-lg">{p.profiles?.username || "HUNTER DESCONOCIDO"}</div>
+                        ))}
+                        {participants.length === 0 && <p className="text-gray-800 text-xs italic font-bold">No registered Hunters detected.</p>}
                     </div>
-                    {isAdmin && (<button onClick={generateBracket} disabled={isGenerating || participants.length < 2} className="flex items-center gap-2.5 bg-purple-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-purple-500 transition-all shadow-xl shadow-purple-900/50 disabled:bg-gray-800 disabled:text-gray-600 text-[11px]"><GenerateIcon /> {isGenerating ? "Uplinking Tactical Map..." : "Initialize Tactical Map"}</button>)}
+
+                    {isAdmin && (
+                      <button onClick={generateBracket} disabled={isGenerating || participants.length < 2} className="flex items-center gap-2.5 bg-purple-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-purple-500 transition-all shadow-xl shadow-purple-900/50 disabled:bg-gray-800 disabled:text-gray-600 text-[11px]">
+                         <GenerateIcon /> {isGenerating ? "Uplinking Tactical Map..." : "Initialize Tactical Map"}
+                      </button>
+                    )}
                 </div>
               )}
             </div>
+
           </div>
         )}
       </main>
