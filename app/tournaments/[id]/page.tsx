@@ -140,7 +140,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         return;
       }
 
-      // NUEVO: Candados de seguridad dependiendo del juego del torneo
+      // Candados de seguridad dependiendo del juego del torneo
       if (tournament.game === "League of Legends" && !profileData.riot_puuid) {
          alert("¡Alto ahí, Hunter! 🛑\n\nEste torneo es de League of Legends. Necesitas vincular tu cuenta de Riot en tu perfil para poder entrar a la Arena.");
          setIsRegistering(false);
@@ -301,7 +301,6 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     
     setIsScanning(match.id);
 
-    // NUEVO: Verificamos qué API llamar según el juego
     const apiEndpoint = tournament.game === "Clash Royale" ? "/api/cr/scan" : "/api/riot/scan";
 
     try {
@@ -356,14 +355,13 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       setScoreModal({ match, p1Score: match.player1_score || 0, p2Score: match.player2_score || 0 });
     };
 
-    // FUNCIÓN DE RENDERIZADO DUAL (LOL / CR)
+    // FUNCIÓN DE RENDERIZADO DUAL EXACTA (LOL / CR)
     const renderPlayer = (p: any, score: number, isWinner: boolean, side: 1|2) => {
       let displayName = "--- TBD ---";
       let subText = "SIN VINCULAR";
 
       if (p) {
          if (tournament.game === "Clash Royale") {
-             // Mostramos el nombre y tag de Clash Royale
              if (p.cr_name || p.cr_tag) {
                  displayName = p.cr_name || p.username;
                  subText = p.cr_tag || "FALTA TAG";
@@ -372,16 +370,16 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                  subText = "NO VINCULADO (CR)";
              }
          } else {
-             // Mostramos el nombre y tag de League of Legends
-             const nombreLol = p.riot_game_name || p.lol_name || p.summoner_name || p.riot_id;
-             const tagLol = p.riot_tagline || p.lol_tag || p.tagline || 'LAN';
-
-             if (nombreLol) {
-                displayName = `${nombreLol}#${tagLol}`;
+             // Es League of Legends. AHORA BUSCAMOS EXACTAMENTE TUS COLUMNAS.
+             if (p.riot_gamename) {
+                displayName = `${p.riot_gamename}#${p.riot_tagline || 'LAN'}`;
                 subText = p.username;
+             } else if (p.riot_puuid) {
+                displayName = p.username;
+                subText = "FALTA GAME_NAME";
              } else {
                 displayName = p.username;
-                subText = "FALTA COLUMNA NOMBRE L.O.L.";
+                subText = "NO VINCULADO (LOL)";
              }
          }
       }
@@ -392,7 +390,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
             <span className={`text-[12px] font-black uppercase italic ${isWinner ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}>
               {displayName}
             </span>
-            <span className="text-[9px] font-bold uppercase -mt-1 text-gray-500">
+            <span className={`text-[9px] font-bold uppercase -mt-1 text-gray-500`}>
               {subText}
             </span>
           </div>
@@ -630,18 +628,24 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                           #{participants.indexOf(p) + 1}
                         </div>
                         <div className="flex flex-col">
-                           <span className="font-black text-white uppercase italic tracking-tighter text-lg">{p.profiles?.username || "HUNTER DESCONOCIDO"}</span>
-                           
-                           {/* MODO DE DEBUGEAR EN LA TABLA DE JUGADORES */}
+                           {/* MODO DUAL PARA LA TABLA DE JUGADORES */}
                            {tournament.game === "Clash Royale" ? (
-                              <span className="text-[10px] text-gray-500 font-bold uppercase">{p.profiles?.cr_tag || "NO VINCULADO"}</span>
+                              <>
+                                <span className="font-black text-white uppercase italic tracking-tighter text-lg">{p.profiles?.cr_name || p.profiles?.username || "HUNTER DESCONOCIDO"}</span>
+                                <span className="text-[10px] text-gray-500 font-bold uppercase">{p.profiles?.cr_tag || "NO VINCULADO"}</span>
+                              </>
                            ) : (
                               <>
-                                 {p.profiles?.riot_puuid && !p.profiles?.riot_game_name && !p.profiles?.lol_name && !p.profiles?.summoner_name && <span className="text-[10px] text-gray-500 font-bold uppercase">FALTA COLUMNA DE NOMBRE</span>}
-                                 {(p.profiles?.riot_game_name || p.profiles?.lol_name || p.profiles?.summoner_name) && <span className="text-[10px] text-gray-500 font-bold uppercase">{(p.profiles?.riot_game_name || p.profiles?.lol_name || p.profiles?.summoner_name)}#{(p.profiles?.riot_tagline || p.profiles?.lol_tag || p.profiles?.tagline || 'LAN')}</span>}
+                                <span className="font-black text-white uppercase italic tracking-tighter text-lg">
+                                  {p.profiles?.riot_gamename ? `${p.profiles.riot_gamename}#${p.profiles.riot_tagline || 'LAN'}` : (p.profiles?.username || "HUNTER DESCONOCIDO")}
+                                </span>
+                                {p.profiles?.riot_gamename ? (
+                                   <span className="text-[10px] text-gray-500 font-bold uppercase">{p.profiles?.username}</span>
+                                ) : (
+                                   <span className="text-[10px] text-gray-500 font-bold uppercase">NO VINCULADO</span>
+                                )}
                               </>
                            )}
-
                         </div>
                       </div>
                     )) : (
