@@ -1,0 +1,41 @@
+[33m1ceb805[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m fix
+[33mca95041[m fix
+[33m48c8c62[m fix
+[33mb406be2[m fix
+[33m23f7483[m fix
+[33m9f0ce6a[m fix
+[33mebdfefd[m fix
+[33m5b384a4[m fix
+[33mf194b1e[m fix
+[33m57aa7a5[m fix
+[33m7547aa9[m fix
+[33ma46ca86[m fix
+[33me57dfb3[m fix
+[33m86bb025[m fix
+[33m177e859[m fix
+[33m7b74456[m fix
+[33m555928f[m fix
+[33mac5ac69[m fix
+[33m1b78064[m fix
+[33m144e5a9[m fix
+[33mda4285f[m fix
+[33m22e1595[m fix
+[33m868f0a0[m fix
+[33mcba5e97[m fix
+[33m33b2712[m fix
+[33m086d8e7[m fix
+[33m867f008[m fix
+[33m1066a0b[m fix
+[33m0e59236[m fix
+[33m9713c5d[m fix
+[33m7de31d8[m fix
+[33m28ffba0[m fix
+[33m5209d1e[m fix
+[33mdb2ea78[m fix
+[33m2de1cbd[m fix
+[33m244ab09[m fix rank
+[33m8d58424[m fix
+[33m751ef8b[m fix: force dynamic rendering for sync api route
+[33m00f9b98[m fix: ignore typescript errors for deployment
+[33mfffe3fa[m Primer despliegue a producción
+[33m92ecabd[m Initial commit from Create Next App
