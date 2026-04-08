@@ -9,7 +9,7 @@ import { Bracket, Seed, SeedItem } from "react-brackets";
 import Modal from "../../../components/Modal";
 
 // ==========================================
-// ICONOS SVG NATIVOS
+// NATIVE SVG ICONS
 // ==========================================
 const ReturnIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>;
 const LinkIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
@@ -32,25 +32,25 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   const [matches, setMatches] = useState<TournamentMatch[]>([]);
   
   const [isScanning, setIsScanning] = useState<string | null>(null);
-  const [isScanningGlobal, setIsScanningGlobal] = useState(false); // NUEVO ESTADO PARA EL RADAR
+  const [isScanningGlobal, setIsScanningGlobal] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  // ESTADOS DE LA LANDING PAGE
+  // LANDING PAGE STATES
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "bracket" | "players">("overview");
 
-  // ESTADOS DEL BRACKET
+  // BRACKET STATES
   const [dummyToAddCount, setDummyToAddCount] = useState<number>(1);
   const [seedingSlot, setSeedingSlot] = useState<{ matchId: string, playerSide: 1 | 2 } | null>(null);
   const [scoreModal, setScoreModal] = useState<{ match: TournamentMatch, p1Score: number, p2Score: number } | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(null);
   
-  // ESTADO NUEVO PARA EL MODO FRANCOTIRADOR
+  // MANUAL API OVERRIDE STATE
   const [manualMatchId, setManualMatchId] = useState("");
 
-  // ESTADO DEL MODAL DE CONFIRMACIÓN
+  // CONFIRMATION MODAL STATE
   const [modal, setModal] = useState<{isOpen: boolean, title: string, message: string, type: 'alert' | 'confirm', onConfirm?: () => void}>({isOpen: false, title: '', message: '', type: 'alert'});
 
   const processUserSession = async (userId: string, participantsList: any[]) => {
@@ -78,7 +78,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     if (pRes.data) setParticipants(pRes.data);
     if (mRes.data) setMatches(mRes.data);
 
-    // Intento 1: Búsqueda normal
+    // Initial session check
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       await processUserSession(session.user.id, pRes.data || []);
@@ -90,7 +90,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     setMounted(true);
     loadInitialData(); 
 
-    // Intento 2: EL CAZADOR DE SESIONES
+    // Subscription to Auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         supabase.from("tournament_participants")
@@ -113,13 +113,13 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   };
 
   // ==========================================
-  // VIGILANTE AUTOMÁTICO (RADAR CADA 5 SEG)
+  // AUTOMATIC TRACKER (SCANS EVERY 5 SEC)
   // ==========================================
   useEffect(() => {
     if (activeTab !== "bracket" || !isAdmin || !tournament) return;
 
     const interval = setInterval(async () => {
-      // Solo busca batallas para enfrentamientos pendientes que ya tengan a los 2 jugadores listos
+      // Only check matches where both players are assigned and status is pending
       const pendingMatches = matches.filter(m => m.status === "pending" && m.player1_id && m.player2_id);
       if (pendingMatches.length === 0) return;
 
@@ -135,11 +135,11 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
           
           if (res.ok) {
             const data = await res.json();
-            // Si la API encuentra una batalla nueva, procesamos el resultado
+            // If the API finds a new match, resolve it automatically
             await autoResolve(match, data.winner_id);
           }
         } catch (e) {
-          console.error("Radar Uplink Error:", e);
+          console.error("Tracker API Error:", e);
         }
       }
       setIsScanningGlobal(false);
@@ -156,7 +156,6 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     const winsNeeded = format === "Bo3" ? 2 : (format === "Bo5" ? 3 : 1);
     const isMatchOver = p1Score >= winsNeeded || p2Score >= winsNeeded;
 
-    // Actualizamos el match y forzamos update del updated_at
     await supabase.from("tournament_matches").update({
       player1_score: p1Score,
       player2_score: p2Score,
@@ -187,7 +186,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   };
 
   // ==========================================
-  // FUNCIONES DE REGISTRO
+  // REGISTRATION FUNCTIONS
   // ==========================================
   const handleRegister = async () => {
     setIsRegistering(true);
@@ -195,7 +194,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (!session) {
-        setModal({isOpen: true, title: 'Error de Sesión', message: '🔍 [DEBUG]: Supabase detecta que NO hay sesión activa en este navegador. Por favor, vuelve a iniciar sesión e inténtalo de nuevo.', type: 'alert'});
+        setModal({isOpen: true, title: 'Session Error', message: '🔍 [DEBUG]: Supabase detects NO active session in this browser. Please log in again.', type: 'alert'});
         setIsRegistering(false);
         return;
       }
@@ -203,7 +202,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (!user) {
-        setModal({isOpen: true, title: 'Error de Usuario', message: '🔍 [DEBUG]: Hay sesión, pero no se pudo obtener el User ID de Supabase.', type: 'alert'});
+        setModal({isOpen: true, title: 'User Error', message: '🔍 [DEBUG]: Session exists, but could not retrieve User ID from Supabase.', type: 'alert'});
         setIsRegistering(false);
         return;
       }
@@ -215,19 +214,19 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         .single();
 
       if (profileError || !profileData) {
-        setModal({isOpen: true, title: 'Error de Perfil', message: `🔍 [DEBUG]: Error al buscar tu perfil en la base de datos. Detalle: ${profileError?.message}`, type: 'alert'});
+        setModal({isOpen: true, title: 'Profile Error', message: `🔍 [DEBUG]: Error fetching your profile from the database. Detail: ${profileError?.message}`, type: 'alert'});
         setIsRegistering(false);
         return;
       }
 
       if (tournament.game === "League of Legends" && !profileData.riot_puuid) {
-         setModal({isOpen: true, title: '¡Alto ahí, Hunter! 🛑', message: 'Este torneo es de League of Legends. Necesitas vincular tu cuenta de Riot en tu perfil para poder entrar a la Arena.', type: 'alert'});
+         setModal({isOpen: true, title: 'Hold on, Player! 🛑', message: 'This is a League of Legends tournament. You must link your Riot account in your profile before entering.', type: 'alert'});
          setIsRegistering(false);
          return;
       }
 
       if (tournament.game === "Clash Royale" && !profileData.cr_tag) {
-         setModal({isOpen: true, title: '¡Alto ahí, Hunter! 🛑', message: 'Este torneo es de Clash Royale. Necesitas vincular tu Tag de Supercell en tu perfil para poder entrar a la Arena.', type: 'alert'});
+         setModal({isOpen: true, title: 'Hold on, Player! 🛑', message: 'This is a Clash Royale tournament. You must link your Supercell Tag in your profile before entering.', type: 'alert'});
          setIsRegistering(false);
          return;
       }
@@ -238,33 +237,33 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
 
       if (error) {
         if (error.code === '23505') { 
-            setModal({isOpen: true, title: 'Ya Registrado', message: 'Ya estás inscrito en esta misión.', type: 'alert'});
+            setModal({isOpen: true, title: 'Already Registered', message: 'You are already registered for this tournament.', type: 'alert'});
         } else {
-            setModal({isOpen: true, title: 'Error de Base de Datos', message: `🔍 [DEBUG] Error al intentar guardar en la base de datos: ${error.message}`, type: 'alert'});
+            setModal({isOpen: true, title: 'Database Error', message: `🔍 [DEBUG] Error saving to the database: ${error.message}`, type: 'alert'});
         }
       } else {
-        setModal({isOpen: true, title: '¡Éxito!', message: '¡Registro Exitoso! Bienvenido a la misión.', type: 'alert'});
+        setModal({isOpen: true, title: 'Success!', message: 'Registration successful! Welcome to the tournament.', type: 'alert'});
         setIsRegistered(true);
         refreshBracket();
       }
 
     } catch (err: any) {
-        setModal({isOpen: true, title: 'Error Inesperado', message: `🔍 [DEBUG] Error Inesperado del sistema: ${err.message}`, type: 'alert'});
+        setModal({isOpen: true, title: 'Unexpected Error', message: `🔍 [DEBUG] Unexpected system error: ${err.message}`, type: 'alert'});
     }
     setIsRegistering(false);
   };
 
   const handleUnregister = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return setModal({isOpen: true, title: 'Error', message: 'No estás autenticado.', type: 'alert'});
+    if (!user) return setModal({isOpen: true, title: 'Error', message: 'You are not authenticated.', type: 'alert'});
     
-    setModal({isOpen: true, title: '¿Abandonar Misión?', message: '¿Estás seguro que deseas abandonar la misión?', type: 'confirm', onConfirm: async () => {
+    setModal({isOpen: true, title: 'Leave Tournament?', message: 'Are you sure you want to leave the tournament?', type: 'confirm', onConfirm: async () => {
       setIsRegistering(true);
       const { error } = await supabase.from("tournament_participants").delete().eq("tournament_id", tournamentId).eq("user_id", user.id);
       if (error) {
-        setModal({isOpen: true, title: 'Error', message: 'Hubo un error al intentar retirarte del torneo.', type: 'alert'});
+        setModal({isOpen: true, title: 'Error', message: 'There was an error trying to remove you from the tournament.', type: 'alert'});
       } else {
-        setModal({isOpen: true, title: 'Éxito', message: 'Te has retirado de la misión.', type: 'alert'});
+        setModal({isOpen: true, title: 'Success', message: 'You have left the tournament.', type: 'alert'});
         setIsRegistered(false);
         refreshBracket();
       }
@@ -273,13 +272,13 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   };
 
   // ==========================================
-  // FUNCIONES DEL BRACKET
+  // BRACKET FUNCTIONS
   // ==========================================
   const generateBracket = async () => {
     if (!isAdmin || isGenerating) return;
-    if (participants.length < 2) return setModal({isOpen: true, title: 'Participantes Insuficientes', message: 'Se necesitan al menos 2 Hunters para inicializar el mapa.', type: 'alert'});
+    if (participants.length < 2) return setModal({isOpen: true, title: 'Insufficient Players', message: 'At least 2 players are required to generate the bracket.', type: 'alert'});
     
-    setModal({isOpen: true, title: 'Inicializar Mapa Táctico', message: 'Esto sobrescribirá el mapa táctico completo y reordenará los enfrentamientos. ¿Proceder?', type: 'confirm', onConfirm: async () => {
+    setModal({isOpen: true, title: 'Generate Bracket', message: 'This will overwrite the current bracket and reseed the matchups. Proceed?', type: 'confirm', onConfirm: async () => {
       setIsGenerating(true);
       await supabase.from("tournament_matches").delete().eq("tournament_id", tournamentId);
 
@@ -329,7 +328,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
 
   const purgeBracket = async () => {
     if (!isAdmin || isGenerating) return;
-    setModal({isOpen: true, title: '⚠️ PURGA DEL MAPA', message: '¿Estás COMPLETAMENTE seguro que deseas PURGAR el mapa táctico? Esto borrará TODOS los scores y enfrentamientos generados.', type: 'confirm', onConfirm: async () => {
+    setModal({isOpen: true, title: '⚠️ PURGE BRACKET', message: 'Are you COMPLETELY sure you want to PURGE the bracket? This will delete ALL scores and generated matchups.', type: 'confirm', onConfirm: async () => {
       setIsGenerating(true);
       await supabase.from("tournament_matches").delete().eq("tournament_id", tournamentId);
       refreshBracket();
@@ -365,7 +364,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         if (nextMatch) await supabase.from("tournament_matches").update(isNextP1 ? { player1_id: winnerId } : { player2_id: winnerId }).eq("id", nextMatch.id);
       }
       setScoreModal(null); await refreshBracket();
-    } catch (err) { setModal({isOpen: true, title: 'Error', message: 'Error al guardar score.', type: 'alert'}); }
+    } catch (err) { setModal({isOpen: true, title: 'Error', message: 'Error saving score.', type: 'alert'}); }
   };
 
   const forceWinner = async (matchId: string, winnerId: string) => {
@@ -379,7 +378,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       
       await supabase.from("tournament_matches").update({ winner_id: winnerId, status: "finished" }).eq("id", matchId);
       setSelectedMatch(null); await refreshBracket();
-    } catch (err) { setModal({isOpen: true, title: 'Error', message: 'Error al forzar ganador.', type: 'alert'}); }
+    } catch (err) { setModal({isOpen: true, title: 'Error', message: 'Error forcing winner.', type: 'alert'}); }
   };
 
   const swapPlayer = async (matchId: string, side: 1 | 2, newPlayerId: string) => {
@@ -389,7 +388,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   };
 
   // ==========================================
-  // LA MAGIA DEL ESCÁNER MANUAL (Para Override)
+  // MANUAL API SCAN (For Overrides)
   // ==========================================
   const scanMatchAPI = async (match: TournamentMatch, customId?: string) => {
     if (!isAdmin || isScanning) return;
@@ -412,16 +411,16 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       const data = await res.json();
       
       if (!res.ok) {
-        let errorMsg = `❌ Escáner Táctico Falló:\n${data.error}`;
+        let errorMsg = `❌ Auto-Scan Failed:\n${data.error}`;
         if (data.debug_log && data.debug_log.length > 0) {
-            errorMsg += `\n\n🔍 REPORTE DE RAYOS X:\n${data.debug_log.join('\n')}`;
+            errorMsg += `\n\n🔍 SCAN REPORT:\n${data.debug_log.join('\n')}`;
         }
-        setModal({isOpen: true, title: 'Escáner Falló', message: errorMsg, type: 'alert'});
+        setModal({isOpen: true, title: 'Scan Failed', message: errorMsg, type: 'alert'});
         setIsScanning(null);
         return;
       }
 
-      setModal({isOpen: true, title: '✅ ¡Transmisión Encontrada!', message: `Ganador detectado: ${data.winner_id === match.player1_id ? 'Hunter 1' : 'Hunter 2'}\n\nAbre el panel de score para confirmar la victoria.`, type: 'alert'});
+      setModal({isOpen: true, title: '✅ Match Found!', message: `Winner detected: ${data.winner_id === match.player1_id ? 'Player 1' : 'Player 2'}\n\nOpen the score panel to confirm the victory.`, type: 'alert'});
       
       const newP1Score = data.winner_id === match.player1_id ? (match.player1_score || 0) + 1 : (match.player1_score || 0);
       const newP2Score = data.winner_id === match.player2_id ? (match.player2_score || 0) + 1 : (match.player2_score || 0);
@@ -430,7 +429,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       setSelectedMatch(null); 
 
     } catch (err) {
-      setModal({isOpen: true, title: 'Error', message: 'Error de uplink con el escáner táctico.', type: 'alert'});
+      setModal({isOpen: true, title: 'Error', message: 'API connection error with the auto-scanner.', type: 'alert'});
     }
     setIsScanning(null);
   };
@@ -452,16 +451,16 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
 
     const renderPlayer = (p: any, score: number, isWinner: boolean, side: 1|2) => {
       let displayName = "--- TBD ---";
-      let subText = "SIN VINCULAR";
+      let subText = "UNLINKED";
 
       if (p) {
          if (tournament.game === "Clash Royale") {
              if (p.cr_name || p.cr_tag) {
                  displayName = p.cr_name || p.username;
-                 subText = p.cr_tag || "FALTA TAG";
+                 subText = p.cr_tag || "MISSING TAG";
              } else {
                  displayName = p.username;
-                 subText = "NO VINCULADO (CR)";
+                 subText = "UNLINKED (CR)";
              }
          } else {
              if (p.riot_gamename) {
@@ -469,10 +468,10 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                 subText = p.username;
              } else if (p.riot_puuid) {
                 displayName = p.username;
-                subText = "FALTA GAME_NAME";
+                subText = "MISSING GAME_NAME";
              } else {
                 displayName = p.username;
-                subText = "NO VINCULADO (LOL)";
+                subText = "UNLINKED (LOL)";
              }
          }
       }
@@ -513,7 +512,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                   onClick={(e) => { e.stopPropagation(); setSelectedMatch(match); setManualMatchId(""); }} 
                   className="w-full bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white py-2 text-[9px] font-black uppercase transition-all tracking-widest"
                 >
-                  Resolve Encounter
+                  Resolve Match
                 </button>
               </div>
             )}
@@ -531,16 +530,16 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
     }))
   }));
 
-  if (loading && matches.length === 0) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-purple-500 font-black italic tracking-widest animate-pulse uppercase">Uplinking Data...</div>;
+  if (loading && matches.length === 0) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-purple-500 font-black italic tracking-widest animate-pulse uppercase">LOADING DATA...</div>;
   if (!tournament) return <div className="min-h-screen bg-[#0b0e14] text-white flex items-center justify-center">Tournament not found.</div>;
 
   return (
     <>
-      {/* MODALES TÁCTICOS */}
+      {/* TACTICAL MODALS */}
       {mounted && scoreModal && createPortal(
         <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md pointer-events-auto" onClick={() => setScoreModal(null)}>
           <div className="bg-[#121620] border-2 border-purple-500 p-10 rounded-[3rem] max-w-lg w-full shadow-[0_0_100px_rgba(168,85,247,0.4)]" onClick={e => e.stopPropagation()}>
-            <h3 className="text-2xl font-black italic uppercase text-white mb-2 text-center tracking-tighter">Report Combat Score</h3>
+            <h3 className="text-2xl font-black italic uppercase text-white mb-2 text-center tracking-tighter">Report Match Score</h3>
             <p className="text-[10px] text-gray-500 uppercase font-bold text-center mb-10 tracking-[0.2em]">Format: <span className="text-purple-400">{tournament.series_format || "Bo1"}</span></p>
             
             <div className="flex justify-between items-center gap-4 mb-10">
@@ -572,9 +571,9 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       {mounted && seedingSlot && createPortal(
         <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md pointer-events-auto" onClick={() => setSeedingSlot(null)}>
           <div className="bg-[#121620] border-2 border-purple-500/50 p-10 rounded-[3rem] max-w-2xl w-full shadow-[0_0_100px_rgba(168,85,247,0.3)]" onClick={e => e.stopPropagation()}>
-            <h3 className="text-2xl font-black italic uppercase text-white mb-8 tracking-tighter">Assign Hunter</h3>
+            <h3 className="text-2xl font-black italic uppercase text-white mb-8 tracking-tighter">Assign Player</h3>
             <div className="grid grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
-              {participants.map(p => <button key={p.id} onClick={() => swapPlayer(seedingSlot.matchId, seedingSlot.playerSide, p.user_id)} className="bg-[#0b0e14] border border-gray-800 hover:border-purple-600 hover:text-white p-5 rounded-2xl text-left font-black text-[11px] uppercase text-gray-400 transition-all truncate">{p.profiles?.username || "HUNTER DESCONOCIDO"}</button>)}
+              {participants.map(p => <button key={p.id} onClick={() => swapPlayer(seedingSlot.matchId, seedingSlot.playerSide, p.user_id)} className="bg-[#0b0e14] border border-gray-800 hover:border-purple-600 hover:text-white p-5 rounded-2xl text-left font-black text-[11px] uppercase text-gray-400 transition-all truncate">{p.profiles?.username || "UNKNOWN PLAYER"}</button>)}
             </div>
             <button onClick={() => setSeedingSlot(null)} className="w-full mt-8 py-4 text-[11px] font-black uppercase text-gray-500 hover:text-white transition-all tracking-[0.4em]">Cancel</button>
           </div>
@@ -582,7 +581,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         document.body
       )}
 
-      {/* MODAL DE RESOLUCIÓN AVANZADA CON MODO FRANCOTIRADOR */}
+      {/* ADVANCED RESOLUTION MODAL */}
       {mounted && selectedMatch && createPortal(
         <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md pointer-events-auto" onClick={() => setSelectedMatch(null)}>
           <div className="bg-[#121620] border-2 border-blue-500 p-8 rounded-3xl max-w-md w-full shadow-[0_0_100px_rgba(59,130,246,0.2)]" onClick={e => e.stopPropagation()}>
@@ -591,15 +590,15 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
             
             <div className="space-y-4 mb-8">
               <button onClick={(e) => scanMatchAPI(selectedMatch)} disabled={isScanning === selectedMatch.id} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-3">
-                {isScanning === selectedMatch.id ? <span className="animate-pulse">Analyzing History...</span> : <><ScanIcon /> Auto-Scan Recent History</>}
+                {isScanning === selectedMatch.id ? <span className="animate-pulse">Analyzing Match History...</span> : <><ScanIcon /> Auto-Scan Recent History</>}
               </button>
               
-              {/* FRANCOTIRADOR */}
+              {/* MANUAL API SCAN */}
               <div className="relative pt-6 mt-4 border-t border-gray-800">
-                <label className="text-[9px] font-black text-gray-500 uppercase absolute -top-2 left-4 bg-[#121620] px-2">Manual Uplink (Sniper Mode)</label>
+                <label className="text-[9px] font-black text-gray-500 uppercase absolute -top-2 left-4 bg-[#121620] px-2">Manual API Scan (Match ID)</label>
                 <input 
                   type="text" 
-                  placeholder="MATCH ID (Opcional)" 
+                  placeholder="MATCH ID (Optional)" 
                   value={manualMatchId} 
                   onChange={e => setManualMatchId(e.target.value)} 
                   className="w-full bg-gray-950 border-2 border-gray-800 p-4 rounded-xl text-white font-bold text-xs outline-none focus:border-purple-500 mb-3"
@@ -613,14 +612,14 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                 </button>
               </div>
 
-              {/* OVERRIDE MANUAL */}
+              {/* ADMIN OVERRIDE */}
               <div className="relative pt-6 mt-4 border-t border-gray-800">
                  <label className="text-[9px] font-black text-gray-500 uppercase absolute -top-2 left-4 bg-[#121620] px-2">Admin Override</label>
                  <div className="grid grid-cols-2 gap-2">
-                    {[selectedMatch.player1_id, selectedMatch.player2_id].filter(Boolean).map(pid => {
-                      const p = participants.find(part => part.user_id === pid)?.profiles;
-                      return <button key={pid} onClick={() => forceWinner(selectedMatch.id, pid!)} className="w-full bg-[#0b0e14] border border-gray-800 hover:bg-red-900/50 hover:border-red-500 hover:text-white text-gray-400 py-3 rounded-xl transition-all text-[9px] font-black uppercase truncate px-2">{p?.username || "TBD"} Wins</button>
-                    })}
+                   {[selectedMatch.player1_id, selectedMatch.player2_id].filter(Boolean).map(pid => {
+                     const p = participants.find(part => part.user_id === pid)?.profiles;
+                     return <button key={pid} onClick={() => forceWinner(selectedMatch.id, pid!)} className="w-full bg-[#0b0e14] border border-gray-800 hover:bg-red-900/50 hover:border-red-500 hover:text-white text-gray-400 py-3 rounded-xl transition-all text-[9px] font-black uppercase truncate px-2">{p?.username || "TBD"} Wins</button>
+                   })}
                  </div>
               </div>
 
@@ -655,17 +654,17 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                 </h1>
                 <div className="flex gap-6 text-gray-500 font-bold uppercase text-[10px] tracking-widest flex-wrap">
                   <span className="flex items-center gap-2"><UserIcon /> {participants.length} / {tournament.max_participants || "∞"} Joined</span>
-                  <span className="flex items-center gap-2 text-purple-400"><TrophyIcon /> {tournament.reward_points || "100"} bounty Pts</span>
+                  <span className="flex items-center gap-2 text-purple-400"><TrophyIcon /> {tournament.reward_points || "100"} Reward Pts</span>
                   <span className="text-gray-700">|</span>
                   <span className="text-white font-black italic">{tournament.series_format || "Bo1"} Mode</span>
                 </div>
               </div>
 
-              {/* ACCIONES DE REGISTRO */}
+              {/* REGISTRATION ACTIONS */}
               <div className="flex flex-col gap-3 items-end shrink-0">
                 {isRegistered ? (
                   <button onClick={handleUnregister} disabled={isRegistering} className="px-12 py-5 rounded-2xl font-black uppercase tracking-widest transition-all transform active:scale-95 shadow-2xl bg-[#1a1d2b] text-red-500 hover:bg-red-900/40 border border-red-900/50 hover:text-red-400 text-[11px]">
-                    {isRegistering ? "Processing..." : "Abort Mission (Leave)"}
+                    {isRegistering ? "Processing..." : "Leave Tournament"}
                   </button>
                 ) : (
                   <button onClick={handleRegister} disabled={isRegistering} className="px-12 py-5 rounded-2xl font-black uppercase tracking-widest transition-all transform active:scale-95 shadow-2xl bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/40 text-[11px]">
@@ -677,13 +676,13 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
-        {/* NAVEGACIÓN TÁCTICA */}
+        {/* NAVIGATION TABS */}
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <nav className="flex border-b border-gray-800 gap-10 overflow-x-auto relative z-30 mb-12">
             {[
-              { id: 'overview', label: 'Operation Overview', show: true },
-              { id: 'players', label: 'Hunter Roster', show: true },
-              { id: 'bracket', label: isAdmin ? 'Manage Tactical Map' : 'Tactical Map (Bracket)', show: isAdmin || matches.length > 0 }
+              { id: 'overview', label: 'Overview', show: true },
+              { id: 'players', label: 'Players', show: true },
+              { id: 'bracket', label: isAdmin ? 'Manage Bracket' : 'Tournament Bracket', show: isAdmin || matches.length > 0 }
             ].filter(tab => tab.show).map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap flex items-center gap-2.5 ${activeTab === tab.id ? "border-purple-500 text-white" : "border-transparent text-gray-500 hover:text-white"}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${activeTab === tab.id ? "bg-purple-500" : "bg-gray-700"}`}></span>
@@ -692,22 +691,22 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
             ))}
           </nav>
 
-          {/* CONTENIDO DE TABS NORMALES (OVERVIEW Y PLAYERS) */}
+          {/* NORMAL TABS CONTENT (OVERVIEW AND PLAYERS) */}
           {(activeTab === "overview" || activeTab === "players") && (
             <div className="animate-in fade-in duration-500 grid grid-cols-1 lg:grid-cols-12 gap-12">
               <div className="lg:col-span-8 space-y-12">
                 {activeTab === "overview" && (
                   <>
                     <section>
-                      <h2 className="text-xl font-black uppercase italic text-white mb-6 tracking-tighter">Operation Rules & Objectives</h2>
+                      <h2 className="text-xl font-black uppercase italic text-white mb-6 tracking-tighter">Rules & Settings</h2>
                       <div className="bg-[#121620] p-8 rounded-[2rem] border border-gray-800 text-gray-400 leading-relaxed font-medium whitespace-pre-wrap text-sm shadow-inner">
-                        {tournament.rules || "No operational parameters established yet."}
+                        {tournament.rules || "No rules have been established yet."}
                       </div>
                     </section>
                     <section>
-                      <h2 className="text-xl font-black uppercase italic text-white mb-6 tracking-tighter">Bounty & Classified Rewards</h2>
+                      <h2 className="text-xl font-black uppercase italic text-white mb-6 tracking-tighter">Prizes & Rewards</h2>
                       <div className="bg-[#121620] p-8 rounded-[2rem] border border-gray-800 text-gray-400 leading-relaxed font-medium whitespace-pre-wrap text-sm shadow-inner">
-                        {tournament.prizes || "Intelligence regarding rewards is currently classified."}
+                        {tournament.prizes || "Prize information is currently TBA."}
                       </div>
                     </section>
                   </>
@@ -722,38 +721,38 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                         <div className="flex flex-col">
                            {tournament.game === "Clash Royale" ? (
                               <>
-                                <span className="font-black text-white uppercase italic tracking-tighter text-lg">{p.profiles?.cr_name || p.profiles?.username || "HUNTER DESCONOCIDO"}</span>
-                                <span className="text-[10px] text-gray-500 font-bold uppercase">{p.profiles?.cr_tag || "NO VINCULADO"}</span>
+                                <span className="font-black text-white uppercase italic tracking-tighter text-lg">{p.profiles?.cr_name || p.profiles?.username || "UNKNOWN PLAYER"}</span>
+                                <span className="text-[10px] text-gray-500 font-bold uppercase">{p.profiles?.cr_tag || "UNLINKED"}</span>
                               </>
                            ) : (
                               <>
                                 <span className="font-black text-white uppercase italic tracking-tighter text-lg">
-                                  {p.profiles?.riot_gamename ? `${p.profiles.riot_gamename}#${p.profiles.riot_tagline || 'LAN'}` : (p.profiles?.username || "HUNTER DESCONOCIDO")}
+                                  {p.profiles?.riot_gamename ? `${p.profiles.riot_gamename}#${p.profiles.riot_tagline || 'LAN'}` : (p.profiles?.username || "UNKNOWN PLAYER")}
                                 </span>
                                 {p.profiles?.riot_gamename ? (
                                    <span className="text-[10px] text-gray-500 font-bold uppercase">{p.profiles?.username}</span>
                                 ) : (
-                                   <span className="text-[10px] text-gray-500 font-bold uppercase">NO VINCULADO</span>
+                                   <span className="text-[10px] text-gray-500 font-bold uppercase">UNLINKED</span>
                                 )}
                               </>
                            )}
                         </div>
                       </div>
                     )) : (
-                      <p className="text-gray-700 italic uppercase font-bold tracking-widest col-span-2 text-center py-10">No hunters have joined the roster yet...</p>
+                      <p className="text-gray-700 italic uppercase font-bold tracking-widest col-span-2 text-center py-10">No players have joined the roster yet...</p>
                     )}
                   </div>
                 )}
               </div>
-              {/* SIDEBAR DE INTEL PARA TABS NORMALES */}
+              {/* SIDEBAR FOR NORMAL TABS */}
               <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-8 self-start">
                   <div className="bg-[#121620] p-8 rounded-[2.5rem] border border-gray-800 shadow-2xl">
-                    <h3 className="text-[10px] font-black uppercase text-purple-500 tracking-[0.5em] italic mb-8">Uplink Intelligence</h3>
+                    <h3 className="text-[10px] font-black uppercase text-purple-500 tracking-[0.5em] italic mb-8">Tournament Details</h3>
                     <div className="space-y-6">
                       {[
                         { label: "Server/Region", value: tournament.region || "Global" },
-                        { label: "Operation Map", value: tournament.map || "Standard" },
-                        { label: "Contact Format", value: tournament.series_format || "BO1" },
+                        { label: "Map", value: tournament.map || "Standard" },
+                        { label: "Series Format", value: tournament.series_format || "BO1" },
                         { label: "Required Check-in", value: tournament.check_in || "Disabled" }
                       ].map((item) => (
                         <div key={item.label} className="flex justify-between border-b border-gray-800 pb-4 gap-4">
@@ -769,19 +768,19 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         </div>
 
         {/* ==========================================
-            TAB DEL BRACKET
+            BRACKET TAB
             ========================================== */}
         {activeTab === "bracket" && (
           <div className="animate-in fade-in duration-500 w-full px-4 md:px-8 relative z-10">
             
             <div className="w-full bg-[#121620] p-8 md:p-10 rounded-[2.5rem] border border-purple-500/10 shadow-2xl mb-12 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 relative z-0">
                 <div className="flex-1">
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-3 inline-block">LIVE OPERATIONAL INTEL</span>
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-3 inline-block">LIVE TOURNAMENT STATUS</span>
                   
-                  {/* ALERTA DE RADAR (SOLO VISIBLE CUANDO ESCANEA) */}
+                  {/* AUTO-SCAN ACTIVE INDICATOR */}
                   {isScanningGlobal && (
                     <span className="ml-4 bg-blue-600/10 text-blue-500 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest animate-pulse border border-blue-500/20">
-                      Radar Active
+                      Auto-Scan Active
                     </span>
                   )}
 
@@ -800,24 +799,24 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                       </div>
                       <span className="text-gray-800">|</span>
                       <div className="flex items-center gap-2.5 bg-gray-900 border border-gray-700 px-3 py-1.5 rounded-full">
-                        <UserIcon /> <span className="text-[11px] font-black text-white uppercase italic">{participants.length} Active Units</span>
+                        <UserIcon /> <span className="text-[11px] font-black text-white uppercase italic">{participants.length} Active Players</span>
                       </div>
                   </div>
                 </div>
                 
                 {isAdmin && (
                   <div className="flex flex-wrap items-center gap-3.5 bg-gray-950 p-5 rounded-[2rem] border border-gray-800 shadow-xl shrink-0">
-                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); setModal({isOpen: true, title: '✅ Copiado', message: '¡Link operacional copiado al portapapeles!', type: 'alert'}); }} className="flex items-center gap-2 bg-gray-900 text-gray-400 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all border border-gray-700">
+                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); setModal({isOpen: true, title: '✅ Copied', message: 'Tournament link copied to clipboard!', type: 'alert'}); }} className="flex items-center gap-2 bg-gray-900 text-gray-400 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all border border-gray-700">
                       <LinkIcon /> Share Link
                     </button>
                     
                     <button onClick={generateBracket} disabled={isGenerating || participants.length < 2} className="flex items-center gap-2 bg-purple-600 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-purple-500 transition-all shadow-xl shadow-purple-900/40 disabled:bg-gray-800 disabled:text-gray-600">
-                      <GenerateIcon /> {matches.length > 0 ? (isGenerating ? "Uplinking..." : "Reroll Map") : (isGenerating ? "Initializing..." : "Initialize Map")}
+                      <GenerateIcon /> {matches.length > 0 ? (isGenerating ? "Generating..." : "Regenerate Bracket") : (isGenerating ? "Initializing..." : "Generate Bracket")}
                     </button>
 
                     {matches.length > 0 && (
                       <button onClick={purgeBracket} disabled={isGenerating} className="flex items-center gap-2 bg-red-950 text-red-500 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-900 transition-all border border-red-800 shadow-inner">
-                        <TrashIcon /> Purge Map
+                        <TrashIcon /> Purge Bracket
                       </button>
                     )}
                   </div>
@@ -825,25 +824,25 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
             </div>
 
             <div className="w-full bg-[#121620] p-6 md:p-10 rounded-[3rem] border-2 border-gray-900/50 shadow-[0_0_100px_rgba(168,85,247,0.05)] overflow-hidden min-h-[700px] flex flex-col relative z-0">
-              <h3 className="text-sm font-black uppercase italic text-gray-500 mb-12 border-b border-gray-800 pb-8 tracking-[0.6em] text-center">Live Operational Tactical Deployment Map</h3>
+              <h3 className="text-sm font-black uppercase italic text-gray-500 mb-12 border-b border-gray-800 pb-8 tracking-[0.6em] text-center">Live Tournament Bracket</h3>
               {mounted && matches.length > 0 ? (
                 <div className="flex-1 overflow-x-auto custom-scrollbar pt-10 w-full pb-10">
                   <Bracket rounds={formattedRounds} renderSeedComponent={CustomSeed} />
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center border-4 border-dashed border-gray-900/30 rounded-[3rem] bg-[#0b0e14]/20 p-10 md:p-20 text-center space-y-8 shadow-inner">
-                    <p className="text-gray-700 text-lg font-black uppercase tracking-[0.6em] italic leading-relaxed">Tactical data stream offline.<br/>Bracket awaiting admin uplink.</p>
+                    <p className="text-gray-700 text-lg font-black uppercase tracking-[0.6em] italic leading-relaxed">Bracket not generated yet.<br/>Waiting for admin to start the tournament.</p>
                     
                     <div className="flex gap-4 overflow-x-auto max-w-full pb-4 px-4 bg-gray-950 p-6 rounded-[2rem] border border-gray-800">
                         {participants.map(p => (
-                            <div key={p.id} className="bg-[#0b0e14] border border-gray-800 px-6 py-3 rounded-xl text-[10px] font-black uppercase italic text-gray-500 shrink-0 shadow-lg">{p.profiles?.username || "HUNTER DESCONOCIDO"}</div>
+                            <div key={p.id} className="bg-[#0b0e14] border border-gray-800 px-6 py-3 rounded-xl text-[10px] font-black uppercase italic text-gray-500 shrink-0 shadow-lg">{p.profiles?.username || "UNKNOWN PLAYER"}</div>
                         ))}
-                        {participants.length === 0 && <p className="text-gray-800 text-xs italic font-bold">No registered Hunters detected.</p>}
+                        {participants.length === 0 && <p className="text-gray-800 text-xs italic font-bold">No registered players detected.</p>}
                     </div>
 
                     {isAdmin && (
                       <button onClick={generateBracket} disabled={isGenerating || participants.length < 2} className="flex items-center gap-2.5 bg-purple-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-purple-500 transition-all shadow-xl shadow-purple-900/50 disabled:bg-gray-800 disabled:text-gray-600 text-[11px]">
-                         <GenerateIcon /> {isGenerating ? "Uplinking Tactical Map..." : "Initialize Tactical Map"}
+                         <GenerateIcon /> {isGenerating ? "Generating Bracket..." : "Generate Bracket"}
                       </button>
                     )}
                 </div>
@@ -854,7 +853,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         )}
       </main>
 
-      {/* MODAL DE CONFIRMACIÓN */}
+      {/* CONFIRMATION MODAL */}
       <Modal
         isOpen={modal.isOpen}
         title={modal.title}

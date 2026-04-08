@@ -28,7 +28,7 @@ export default function LoginPage() {
         window.location.href = "/"; 
       }
     } else {
-      console.log("Intentando crear Hunter con:", email, username);
+      console.log("Attempting to create Player with:", email, username);
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -36,7 +36,7 @@ export default function LoginPage() {
         options: { data: { username: username } },
       });
       
-      console.log("Respuesta de Supabase:", data, error);
+      console.log("Supabase response:", data, error);
       
       if (error) {
         setError(error.message);
@@ -44,7 +44,7 @@ export default function LoginPage() {
         setModal({
           isOpen: true, 
           title: 'Success', 
-          message: 'Sign Up completed! Welcome to the Arena.', 
+          message: 'Account created! Welcome to the Arena.', 
           type: 'alert'
         });
       }
@@ -84,24 +84,24 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Llave de Acceso</label>
+            <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Password</label>
             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-all" placeholder="••••••••" />
           </div>
 
           <button type="submit" disabled={loading} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black text-[11px] uppercase tracking-[0.2em] py-4 rounded-xl mt-6 transition-all shadow-[0_10px_20px_rgba(168,85,247,0.2)] disabled:opacity-50">
-            {loading ? "Sincronizando..." : (isLogin ? "Enlace a la Arena" : "Iniciar Despertar")}
+            {loading ? "Processing..." : (isLogin ? "Sign In" : "Sign Up")}
           </button>
         </form>
 
         <div className="mt-8 text-center">
           <button type="button" onClick={() => { setIsLogin(!isLogin); setError(null); }} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-purple-400 transition-colors">
-            {isLogin ? "¿No tienes licencia? Regístrate" : "¿Ya eres un Hunter? Login"}
+            {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
           </button>
         </div>
       </div>
       <Modal isOpen={modal.isOpen} title={modal.title} message={modal.message} onClose={() => {
         setModal({...modal, isOpen: false});
-        if (modal.title === 'Éxito') window.location.href = "/";
+        if (modal.title === 'Success') window.location.href = "/";
       }} type={modal.type} />
     </main>
   );

@@ -34,7 +34,7 @@ export default function LandingPage() {
               href="/register" 
               className="bg-purple-600 hover:bg-purple-500 text-white px-10 py-5 rounded-2xl text-xs md:text-sm font-black uppercase tracking-[0.2em] transition-all shadow-[0_0_30px_rgba(168,85,247,0.3)] hover:shadow-[0_0_50px_rgba(168,85,247,0.6)] hover:-translate-y-1"
             >
-              Initiate Neural Link
+              Create Account
             </Link>
             <Link 
               href="/services" 
@@ -52,7 +52,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row items-end justify-between mb-16 gap-6">
             <div>
               <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white">Our <span className="text-purple-500">Technology</span></h2>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-4">Integral solutions for communities and competitions.</p>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-4">Comprehensive solutions for communities and competitions.</p>
             </div>
             <div className="h-1 w-24 bg-purple-600 rounded-full md:mb-4"></div>
           </div>
@@ -99,7 +99,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-4">Hall of <span className="text-purple-500">Fame</span></h2>
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Epic battles that defined the Arena.</p>
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Epic matches that defined the Arena.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -132,7 +132,7 @@ export default function LandingPage() {
                 <div className="absolute -top-6 right-6 bg-gray-700 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest border-2 border-[#0b0e14]">
                   Completed
                 </div>
-                <h4 className="text-lg font-black uppercase italic text-white mb-2">Abyss Duos 2v2</h4>
+                <h4 className="text-lg font-black uppercase italic text-white mb-2">Challenger Duos 2v2</h4>
                 <div className="flex justify-between items-center mt-4">
                   <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Champions: <span className="text-red-400">Team X</span></span>
                   <span className="text-[10px] text-gray-600 font-bold uppercase">Feb 2026</span>
@@ -152,7 +152,7 @@ export default function LandingPage() {
               <div className="p-6 relative opacity-50">
                 <h4 className="text-lg font-black uppercase italic text-white mb-2">S-Rank Invitational</h4>
                 <div className="flex justify-between items-center mt-4">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Prize Pool: <span className="text-gray-300">Classified</span></span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Prize Pool: <span className="text-gray-300">TBA</span></span>
                   <span className="text-[10px] text-gray-600 font-bold uppercase">May 2026</span>
                 </div>
               </div>
@@ -162,7 +162,7 @@ export default function LandingPage() {
           
           <div className="mt-12 text-center">
             <Link href="/tournaments" className="inline-block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-purple-400 transition-colors border-b border-transparent hover:border-purple-400 pb-1">
-              View all records &rarr;
+              View all results &rarr;
             </Link>
           </div>
         </div>
@@ -172,7 +172,7 @@ export default function LandingPage() {
       <section className="border-t border-gray-900 bg-[#080a0f] py-24 text-center relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-purple-900/10 blur-[100px] rounded-full pointer-events-none"></div>
         <div className="relative z-10 px-4">
-          <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white mb-8">The Nexus Awaits</h2>
+          <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white mb-8">Ready To Compete?</h2>
           <Link 
             href="/register" 
             className="inline-block bg-white text-black hover:bg-gray-200 px-12 py-5 rounded-2xl text-xs md:text-sm font-black uppercase tracking-[0.2em] transition-all shadow-xl hover:scale-105"

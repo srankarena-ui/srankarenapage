@@ -14,7 +14,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
   const [syncing, setSyncing] = useState(false);
 
   async function loadAllData() {
-    // 1. Cargar Perfil
+    // 1. Load Profile
     const { data: profileData } = await supabase
       .from("profiles")
       .select("*")
@@ -24,7 +24,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
     if (profileData) {
       setProfile(profileData);
       
-      // 2. Cargar Estadísticas de Logros (Arena Stats)
+      // 2. Load Achievement Stats (Arena Stats)
       const { data: statsData } = await supabase
         .from("user_arena_stats")
         .select("*")
@@ -60,8 +60,8 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-purple-500 font-black italic tracking-tighter uppercase animate-pulse">ACCEDIENDO AL NÚCLEO...</div>;
-  if (!profile) return <div className="min-h-screen bg-[#0b0e14] text-white p-20 text-center font-black">USUARIO NO ENCONTRADO</div>;
+  if (loading) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-purple-500 font-black italic tracking-tighter uppercase animate-pulse">LOADING PROFILE...</div>;
+  if (!profile) return <div className="min-h-screen bg-[#0b0e14] text-white p-20 text-center font-black uppercase tracking-widest">USER NOT FOUND</div>;
 
   return (
     <main className="min-h-screen bg-[#0b0e14] text-gray-200 p-4 md:p-8 font-sans">
@@ -80,82 +80,82 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
             <div className="text-center md:text-left flex-1">
               <h1 className="text-5xl md:text-6xl font-black text-white uppercase italic tracking-tighter leading-none mb-4">{profile.username}</h1>
               <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                <span className="bg-purple-600/10 text-purple-500 text-[10px] font-black px-4 py-1 rounded-full border border-purple-600/20 uppercase tracking-widest">Cazador de la Arena</span>
+                <span className="bg-purple-600/10 text-purple-500 text-[10px] font-black px-4 py-1 rounded-full border border-purple-600/20 uppercase tracking-widest">Verified Competitor</span>
                 <span className="bg-gray-800 text-gray-400 text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-widest">S-Rank Level {profile.experience ? Math.floor(profile.experience / 1000) : 1}</span>
               </div>
             </div>
             
-            {/* BOTÓN SYNC */}
+            {/* SYNC BUTTON */}
             {profile.riot_puuid && (
               <button 
                 onClick={handleSync}
                 disabled={syncing}
                 className={`px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border ${syncing ? 'bg-gray-800 border-gray-700 text-gray-500' : 'bg-purple-600 border-purple-500 text-white hover:bg-purple-500 shadow-lg shadow-purple-900/20'}`}
               >
-                {syncing ? 'Sincronizando...' : 'Sincronizar Arena'}
+                {syncing ? 'Syncing...' : 'Sync Arena Stats'}
               </button>
             )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* PANEL IZQUIERDO: PROGRESO & NEXO */}
+          {/* LEFT PANEL: PROGRESS & CONNECTIONS */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-[#121620] border border-gray-800 rounded-[2rem] p-8 shadow-xl">
-              <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-8 italic">Progreso Arena</h3>
+              <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-8 italic">Arena Progression</h3>
               <div className="space-y-6">
                 <div className="flex justify-between items-end">
-                  <span className="text-[10px] font-black uppercase text-gray-500">Rango Actual</span>
+                  <span className="text-[10px] font-black uppercase text-gray-500">Current Rank</span>
                   <span className="text-3xl font-black text-white italic uppercase leading-none">{profile.rank || 'Rank F'}</span>
                 </div>
                 <div className="h-2 w-full bg-gray-950 rounded-full overflow-hidden border border-gray-800 p-[2px]">
                   <div className="h-full bg-gradient-to-r from-purple-800 to-purple-500 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all duration-1000" style={{ width: `${Math.min(((profile.experience || 0) / 5000) * 100, 100)}%` }}></div>
                 </div>
-                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">{profile.experience || 0} XP Acumulada</p>
+                <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">{profile.experience || 0} Total XP</p>
               </div>
             </div>
 
             <div className="bg-[#121620] border border-gray-800 rounded-[2rem] p-8 shadow-xl">
-              <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-8 italic">Nexus de Juegos</h3>
+              <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-8 italic">Game Connections</h3>
               
-              {/* BLOQUE LEAGUE OF LEGENDS */}
+              {/* LEAGUE OF LEGENDS BLOCK */}
               {profile.riot_puuid ? (
                 <div className="space-y-4 mb-4">
                   <div className="bg-[#0b0e14] p-6 rounded-2xl border border-gray-800 group hover:border-purple-500 transition-all shadow-inner">
-                    <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Enlace Neural LOL</p>
+                    <p className="text-[9px] text-gray-600 font-black uppercase mb-1">League of Legends Link</p>
                     <p className="text-xl font-black text-white mb-6 uppercase italic tracking-tight">{profile.riot_gamename} <span className="text-gray-700">#{profile.riot_tagline}</span></p>
                     <Link href={`/lol/${profile.riot_puuid}`} className="block w-full py-3 bg-gray-800 hover:bg-purple-600 text-[10px] font-black text-center uppercase tracking-widest rounded-xl transition-all text-white shadow-lg">
-                      Analizar Combatiente &rarr;
+                      View Player Stats &rarr;
                     </Link>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-6 mb-4 border-2 border-dashed border-gray-800 rounded-[2rem]">
-                  <p className="text-[10px] font-black text-gray-600 uppercase mb-4 tracking-widest italic opacity-50">Sin Enlace LOL Detectado</p>
-                  <Link href="/settings" className="text-[10px] font-black text-purple-500 uppercase underline tracking-widest hover:text-white transition-colors">Vincular Riot ID</Link>
+                  <p className="text-[10px] font-black text-gray-600 uppercase mb-4 tracking-widest italic opacity-50">No LOL Account Linked</p>
+                  <Link href="/settings" className="text-[10px] font-black text-purple-500 uppercase underline tracking-widest hover:text-white transition-colors">Link Riot ID</Link>
                 </div>
               )}
 
-              {/* BLOQUE CLASH ROYALE */}
+              {/* CLASH ROYALE BLOCK */}
               {profile.cr_tag ? (
                 <div className="space-y-4">
                   <div className="bg-[#0b0e14] p-6 rounded-2xl border border-gray-800 group hover:border-blue-500 transition-all shadow-inner">
-                    <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Enlace Neural CR</p>
+                    <p className="text-[9px] text-gray-600 font-black uppercase mb-1">Clash Royale Link</p>
                     <p className="text-xl font-black text-white uppercase italic tracking-tight mb-2">{profile.cr_name || "Clash Royale"}</p>
                     <p className="text-[11px] font-bold text-gray-500 mb-6">{profile.cr_tag}</p>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-6 border-2 border-dashed border-gray-800 rounded-[2rem]">
-                  <p className="text-[10px] font-black text-gray-600 uppercase mb-4 tracking-widest italic opacity-50">Sin Enlace CR Detectado</p>
-                  <Link href="/settings" className="text-[10px] font-black text-blue-500 uppercase underline tracking-widest hover:text-white transition-colors">Vincular CR Tag</Link>
+                  <p className="text-[10px] font-black text-gray-600 uppercase mb-4 tracking-widest italic opacity-50">No CR Account Linked</p>
+                  <Link href="/settings" className="text-[10px] font-black text-blue-500 uppercase underline tracking-widest hover:text-white transition-colors">Link CR Tag</Link>
                 </div>
               )}
 
             </div>
           </div>
 
-          {/* PANEL DERECHO: LOGROS (Nuevo Sistema S-Rank) */}
+          {/* RIGHT PANEL: ACHIEVEMENTS */}
           <div className="lg:col-span-2 space-y-8">
             <div className="flex items-center gap-4">
               <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.5em] italic">Arena Combat Badges</h3>
@@ -173,7 +173,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ username
             </div>
             
             <p className="text-center text-[9px] text-gray-700 font-bold uppercase tracking-[0.3em] pt-4">
-              * Los logros se calculan basándose únicamente en partidas jugadas post-vinculación.
+              * Achievements are calculated based solely on matches played after account linking.
             </p>
           </div>
         </div>

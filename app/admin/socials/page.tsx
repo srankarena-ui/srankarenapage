@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase"; // Ajusta tu ruta
+import { supabase } from "../../lib/supabase"; // Adjust this route if necessary
 
 export default function AdminSocials() {
   const [socials, setSocials] = useState<any[]>([]);
@@ -39,9 +39,9 @@ export default function AdminSocials() {
     <div className="p-8 max-w-4xl mx-auto">
       <h1 className="text-3xl font-black italic uppercase text-white mb-8">Manage Social Links</h1>
 
-      {/* Formulario para agregar */}
+      {/* Add Link Form */}
       <div className="bg-[#121620] border border-gray-800 p-6 rounded-2xl mb-8">
-        <h2 className="text-xl font-bold text-purple-400 mb-4">Add New Network</h2>
+        <h2 className="text-xl font-bold text-purple-400 mb-4">Add New Platform</h2>
         <form onSubmit={handleAdd} className="flex flex-col md:flex-row gap-4 items-end">
           <div className="flex-1 w-full">
             <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-2">Platform</label>
@@ -80,7 +80,7 @@ export default function AdminSocials() {
         </form>
       </div>
 
-      {/* Lista de redes activas */}
+      {/* Active Social Links Table */}
       <div className="bg-[#121620] border border-gray-800 rounded-2xl overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-900 text-[10px] uppercase tracking-widest text-gray-500">

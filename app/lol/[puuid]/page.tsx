@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 
-export default function LoLDataTerminalPage({ params }: { params: Promise<{ puuid: string }> }) {
+export default function LoLStatsPage({ params }: { params: Promise<{ puuid: string }> }) {
   const resolvedParams = use(params);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -13,12 +13,12 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
   useEffect(() => {
     async function fetchAll() {
       try {
-        // El "?t=" rompe la caché del navegador para que siempre traiga datos frescos
+        // The "?t=" breaks the browser cache to always fetch fresh data
         const res = await fetch(`/api/lol/${resolvedParams.puuid}?t=${new Date().getTime()}`);
         
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("El servidor no respondió con JSON. Revisa la consola.");
+          throw new Error("The server did not respond with JSON. Check the console.");
         }
 
         const json = await res.json();
@@ -34,17 +34,17 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
   }, [resolvedParams.puuid]);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#111111] flex items-center justify-center text-blue-500 font-bold animate-pulse">
-      Cargando datos del invocador...
+    <div className="min-h-screen bg-[#111111] flex items-center justify-center text-blue-500 font-bold animate-pulse tracking-widest uppercase text-sm">
+      Loading player data...
     </div>
   );
 
   if (!data || data.error) return (
     <div className="min-h-screen bg-[#111111] text-red-500 p-10 flex flex-col items-center justify-center text-center">
        <div className="border border-red-500/30 p-10 bg-red-500/5 rounded-lg max-w-xl">
-          <h2 className="text-2xl font-black mb-4 uppercase">Error de Conexión</h2>
-          <p className="text-sm text-gray-400 mb-8">{data?.error || "Error de comunicación."}</p>
-          <Link href="/" className="bg-red-600 text-white px-6 py-2 rounded font-bold hover:bg-red-700 transition">Volver</Link>
+          <h2 className="text-2xl font-black mb-4 uppercase">Connection Error</h2>
+          <p className="text-sm text-gray-400 mb-8">{data?.error || "Communication error."}</p>
+          <Link href="/" className="bg-red-600 text-white px-6 py-2 rounded font-bold hover:bg-red-700 transition uppercase tracking-widest text-xs">Go Back</Link>
        </div>
     </div>
   );
@@ -78,7 +78,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
   const avgKills = totalGames > 0 ? (kills / totalGames).toFixed(1) : "0";
   const avgDeaths = totalGames > 0 ? (deaths / totalGames).toFixed(1) : "0";
   const avgAssists = totalGames > 0 ? (assists / totalGames).toFixed(1) : "0";
-  const kdaRatio = deaths === 0 ? "Perfecto" : ((kills + assists) / deaths).toFixed(2);
+  const kdaRatio = deaths === 0 ? "Perfect" : ((kills + assists) / deaths).toFixed(2);
 
   return (
     <main className="min-h-screen bg-[#111111] text-gray-300 p-4 md:p-8 font-sans">
@@ -99,8 +99,8 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
             <h1 className="text-3xl font-bold text-white mb-1">
               {data.summoner?.name} <span className="text-gray-500 text-xl font-normal">#{data.region}</span>
             </h1>
-            <button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-4 rounded transition">
-              Actualizar Datos
+            <button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-widest py-2 px-4 rounded transition">
+              Refresh Data
             </button>
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-4">
             <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800 relative">
-              <h3 className="text-gray-400 text-sm mb-3">Clasificatoria Solo/Dúo</h3>
+              <h3 className="text-gray-400 text-sm mb-3 font-bold uppercase tracking-widest">Ranked Solo/Duo</h3>
               {soloRank ? (
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
@@ -116,14 +116,14 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
                     <p className="text-gray-400 text-sm">{soloRank.leaguePoints} LP</p>
                   </div>
                   <div className="text-right text-sm">
-                    <p className="text-gray-400">{soloRank.wins}V {soloRank.losses}D</p>
+                    <p className="text-gray-400 font-bold">{soloRank.wins}W {soloRank.losses}L</p>
                     <p className="text-gray-500">Win Rate {Math.round((soloRank.wins / (soloRank.wins + soloRank.losses)) * 100)}%</p>
                   </div>
                 </div>
               ) : (
                 <div>
                   <p className="text-gray-500 italic text-sm">Unranked</p>
-                  {/* CÓDIGO DE DIAGNÓSTICO: Si sigue fallando, nos mostrará por qué en un cuadrito muy pequeño */}
+                  {/* DIAGNOSTIC CODE: Shows tiny error box if Riot API fails silently */}
                   {data._debug && data._debug.status !== "200" && (
                      <div className="mt-4 p-2 bg-red-900/20 border border-red-500/50 text-[10px] text-red-400 rounded">
                        <p>Debug ID: {data._debug.realSummonerId}</p>
@@ -135,7 +135,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
             </div>
 
             <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800">
-              <h3 className="text-gray-400 text-sm mb-3">Clasificatoria Flexible</h3>
+              <h3 className="text-gray-400 text-sm mb-3 font-bold uppercase tracking-widest">Ranked Flex</h3>
               {flexRank ? (
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
@@ -143,7 +143,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
                     <p className="text-gray-400 text-sm">{flexRank.leaguePoints} LP</p>
                   </div>
                   <div className="text-right text-sm">
-                    <p className="text-gray-400">{flexRank.wins}V {flexRank.losses}D</p>
+                    <p className="text-gray-400 font-bold">{flexRank.wins}W {flexRank.losses}L</p>
                     <p className="text-gray-500">Win Rate {Math.round((flexRank.wins / (flexRank.wins + flexRank.losses)) * 100)}%</p>
                   </div>
                 </div>
@@ -156,8 +156,8 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-[#1e1e1e] rounded-lg p-5 border border-gray-800 flex flex-col md:flex-row gap-6 items-center md:justify-between">
               <div className="text-center md:text-left">
-                <p className="text-sm text-gray-400 mb-1">{totalGames} Partidas Recientes</p>
-                <p className="text-xl font-bold text-white">{wins}V {totalGames - wins}D</p>
+                <p className="text-sm text-gray-400 mb-1 font-bold uppercase tracking-widest">{totalGames} Recent Matches</p>
+                <p className="text-xl font-bold text-white">{wins}W {totalGames - wins}L</p>
                 <p className={`text-lg font-bold ${winrate >= 50 ? 'text-blue-500' : 'text-red-500'}`}>
                   {winrate}% Win Rate
                 </p>
@@ -169,7 +169,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
               </div>
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-400">
-                <p>Dobles: <span className="text-white font-bold">{doubles}</span></p>
+                <p>Doubles: <span className="text-white font-bold">{doubles}</span></p>
                 <p>Triples: <span className="text-green-400 font-bold">{triples}</span></p>
                 <p>Quadras: <span className="text-purple-400 font-bold">{quadras}</span></p>
                 <p>Pentas: <span className="text-yellow-400 font-bold">{pentas}</span></p>
@@ -182,14 +182,14 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
                 if (!p) return null;
                 
                 const isWin = p.win;
-                const matchKDA = p.deaths === 0 ? "Perfecto" : ((p.kills + p.assists) / p.deaths).toFixed(2);
+                const matchKDA = p.deaths === 0 ? "Perfect" : ((p.kills + p.assists) / p.deaths).toFixed(2);
                 const cs = p.totalMinionsKilled + (p.neutralMinionsKilled || 0);
                 const gameMinutes = Math.floor(m.info.gameDuration / 60);
 
                 return (
                   <div key={idx} className={`flex items-center gap-4 p-3 rounded-md border-l-4 ${isWin ? 'bg-[#28344e] border-blue-500' : 'bg-[#59343b] border-red-500'}`}>
                     <div className="w-20 text-xs text-gray-300">
-                      <p className={`font-bold ${isWin ? 'text-blue-400' : 'text-red-400'}`}>{isWin ? 'Victoria' : 'Derrota'}</p>
+                      <p className={`font-bold ${isWin ? 'text-blue-400' : 'text-red-400'}`}>{isWin ? 'Victory' : 'Defeat'}</p>
                       <p>{m.info.gameMode}</p>
                       <p className="text-gray-400">{gameMinutes} min</p>
                     </div>
@@ -212,7 +212,7 @@ export default function LoLDataTerminalPage({ params }: { params: Promise<{ puui
                       {p.pentaKills > 0 && <span className="bg-yellow-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Penta</span>}
                       {p.quadraKills > 0 && p.pentaKills === 0 && <span className="bg-purple-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Quadra</span>}
                       {p.tripleKills > 0 && p.quadraKills === 0 && p.pentaKills === 0 && <span className="bg-green-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Triple</span>}
-                      {p.doubleKills > 0 && p.tripleKills === 0 && p.quadraKills === 0 && p.pentaKills === 0 && <span className="bg-red-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Doble</span>}
+                      {p.doubleKills > 0 && p.tripleKills === 0 && p.quadraKills === 0 && p.pentaKills === 0 && <span className="bg-red-600 text-white px-2 py-0.5 rounded-full mt-1 inline-block">Double</span>}
                     </div>
                   </div>
                 );

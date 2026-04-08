@@ -45,9 +45,9 @@ export default function AdminDashboard() {
     contact_method: "Discord",
     discord_link: "",
     region: "North America",
-    map: "Howling Abyss",
-    game_type: "Blind Pick",
-    mode: "1v1",
+    map: "Summoner's Rift",
+    game_type: "Draft Pick",
+    mode: "5v5",
     series_format: "Bo1",
     registration_status: "Open",
     check_in: "Disabled",
@@ -123,11 +123,11 @@ export default function AdminDashboard() {
       
       cancelEdit(); 
       await loadData(); 
-      setModal({isOpen: true, title: '✅ Éxito', message: editingId ? 'TOURNAMENT UPDATED SUCCESSFULLY' : 'TOURNAMENT PUBLISHED SUCCESSFULLY', type: 'alert'});
+      setModal({isOpen: true, title: '✅ Success', message: editingId ? 'TOURNAMENT UPDATED SUCCESSFULLY' : 'TOURNAMENT PUBLISHED SUCCESSFULLY', type: 'alert'});
 
     } catch (error: any) {
       console.error("DB Error:", error);
-      setModal({isOpen: true, title: 'Error de Base de Datos', message: `DATABASE ERROR: ${error.message}`, type: 'alert'});
+      setModal({isOpen: true, title: 'Database Error', message: `DATABASE ERROR: ${error.message}`, type: 'alert'});
     } finally {
       setIsPublishing(false);
     }
@@ -154,7 +154,7 @@ export default function AdminDashboard() {
       ...formData, 
       title: t.title || "", 
       game: t.game || "League of Legends", 
-      mode: t.mode || "1v1", 
+      mode: t.mode || "5v5", 
       max_participants: t.max_participants || 16, 
       tournament_format: t.tournament_format || "Single Elimination", 
       series_format: t.series_format || "Bo1",
@@ -164,7 +164,7 @@ export default function AdminDashboard() {
       rules: t.rules || "",
       prizes: t.prizes || "",
       region: t.region || "North America",
-      map: t.map || "Howling Abyss",
+      map: t.map || "Summoner's Rift",
       contact_method: t.contact_method || "Discord",
       discord_link: t.discord_link || ""
     });
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
   };
 
   const deleteTournament = async (id: string) => {
-    setModal({isOpen: true, title: 'Eliminar Torneo', message: '¿Estás seguro que quieres eliminar este torneo? Esta acción no se puede deshacer.', type: 'confirm', onConfirm: async () => {
+    setModal({isOpen: true, title: 'Delete Tournament', message: 'Are you sure you want to delete this tournament? This action cannot be undone.', type: 'confirm', onConfirm: async () => {
       await supabase.from("tournaments").delete().eq("id", id);
       loadData();
       setModal({isOpen: false, title: '', message: '', type: 'alert'});
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
   const purgeDummies = async () => {
     const ids = users.filter(u => u.is_dummy).map(u => u.id);
     if (ids.length === 0) return;
-    setModal({isOpen: true, title: 'Purgar Dummies', message: `¿Estás seguro que quieres eliminar ${ids.length} dummies?`, type: 'confirm', onConfirm: async () => {
+    setModal({isOpen: true, title: 'Purge Test Bots', message: `Are you sure you want to delete ${ids.length} test bots?`, type: 'confirm', onConfirm: async () => {
       setLoading(true);
       await supabase.from("tournament_participants").delete().in("user_id", ids);
       await supabase.from("profiles").delete().in("id", ids);
@@ -194,13 +194,13 @@ export default function AdminDashboard() {
   };
 
   const createDummy = async () => {
-    const dummy = { id: crypto.randomUUID(), username: `Hunter_${Math.floor(Math.random() * 9000)+1000}`, rank: "UNRANKED", role: "usuario", is_dummy: true };
+    const dummy = { id: crypto.randomUUID(), username: `Player_${Math.floor(Math.random() * 9000)+1000}`, rank: "UNRANKED", role: "usuario", is_dummy: true };
     await supabase.from("profiles").insert([dummy]);
     loadData();
   };
 
   const deleteUser = async (userId: string) => {
-    setModal({isOpen: true, title: 'Eliminar Usuario', message: '¿Estás seguro que quieres eliminar este usuario?', type: 'confirm', onConfirm: async () => {
+    setModal({isOpen: true, title: 'Delete User', message: 'Are you sure you want to delete this user?', type: 'confirm', onConfirm: async () => {
       await supabase.from("profiles").delete().eq("id", userId);
       loadData();
       setModal({isOpen: false, title: '', message: '', type: 'alert'});
@@ -214,7 +214,7 @@ export default function AdminDashboard() {
     setNewGameName(""); loadData();
   };
 
-  if (loading) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-purple-500 font-black italic tracking-widest animate-pulse">INITIATING TERMINAL...</div>;
+  if (loading) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-purple-500 font-black italic tracking-widest animate-pulse">LOADING DASHBOARD...</div>;
 
   return (
     <>
@@ -223,7 +223,7 @@ export default function AdminDashboard() {
         <header className="flex flex-col md:flex-row md:items-center justify-between mb-16 gap-8 border-b border-gray-800 pb-10">
           <div>
             <h1 className="text-4xl font-black uppercase italic text-white tracking-tighter leading-none">Command Center</h1>
-            <p className="text-[11px] font-bold text-purple-500 uppercase tracking-[0.5em] mt-3 italic">Elite Tactical Unit Interface</p>
+            <p className="text-[11px] font-bold text-purple-500 uppercase tracking-[0.5em] mt-3 italic">Administration Panel</p>
           </div>
           <nav className="flex bg-[#121620] p-1.5 rounded-2xl border border-gray-800 shadow-2xl">
             {["events", "users", "games"].map(tab => (
@@ -236,21 +236,21 @@ export default function AdminDashboard() {
           <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
                <div className="flex gap-4">
-                <button onClick={createDummy} className="bg-white text-black px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all">Create Dummy</button>
-                <button onClick={purgeDummies} className="bg-red-600/10 border border-red-500 text-red-500 px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Purge Dummies</button>
-                <button onClick={() => setShowDummies(!showDummies)} className={`px-8 py-3 rounded-2xl text-[11px] font-black uppercase border transition-all ${showDummies ? 'border-purple-500 text-purple-400' : 'border-gray-800 text-gray-500'}`}>{showDummies ? "Showing Dummies" : "Hiding Dummies"}</button>
+                <button onClick={createDummy} className="bg-white text-black px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all">Create Test Bot</button>
+                <button onClick={purgeDummies} className="bg-red-600/10 border border-red-500 text-red-500 px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Purge Test Bots</button>
+                <button onClick={() => setShowDummies(!showDummies)} className={`px-8 py-3 rounded-2xl text-[11px] font-black uppercase border transition-all ${showDummies ? 'border-purple-500 text-purple-400' : 'border-gray-800 text-gray-500'}`}>{showDummies ? "Showing Test Bots" : "Hiding Test Bots"}</button>
                </div>
-               <p className="text-[11px] font-black text-gray-600 uppercase italic">Registered Hunters: {users.length}</p>
+               <p className="text-[11px] font-black text-gray-600 uppercase italic">Registered Players: {users.length}</p>
             </div>
             <div className="bg-[#121620] border border-gray-800 rounded-[3rem] overflow-hidden shadow-2xl">
               <table className="w-full text-left">
                 <thead className="bg-[#0b0e14] text-[11px] font-black uppercase text-gray-500 border-b border-gray-800">
-                  <tr><th className="px-10 py-8 italic">Type</th><th className="px-10 py-8 italic text-center w-80">Hunter Identity</th><th className="px-10 py-8 italic text-right">Action</th></tr>
+                  <tr><th className="px-10 py-8 italic">Type</th><th className="px-10 py-8 italic text-center w-80">Player Alias</th><th className="px-10 py-8 italic text-right">Action</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/50">
                   {users.filter(u => showDummies || !u.is_dummy).map((u) => (
                     <tr key={u.id} className="hover:bg-[#1e2330] transition-colors group">
-                      <td className="px-10 py-8 text-center">{u.is_dummy ? <span className="text-[8px] bg-purple-900/30 px-3 py-1 rounded-full border border-purple-500/30 text-purple-400 font-black">DUMMY</span> : "👤"}</td>
+                      <td className="px-10 py-8 text-center">{u.is_dummy ? <span className="text-[8px] bg-purple-900/30 px-3 py-1 rounded-full border border-purple-500/30 text-purple-400 font-black">TEST BOT</span> : "👤"}</td>
                       <td className="px-10 py-8 font-black text-white uppercase italic tracking-tighter text-lg">{u.username}</td>
                       <td className="px-10 py-8 text-right"><button onClick={() => deleteUser(u.id)} className="text-gray-600 hover:text-red-500 p-3 transition-all">Del</button></td>
                     </tr>
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
         {activeTab === "games" && (
           <div className="max-w-3xl mx-auto animate-in zoom-in-95 duration-500">
             <form onSubmit={addGame} className="bg-[#121620] p-10 rounded-[3rem] border border-gray-800 shadow-2xl mb-12 text-center">
-              <h2 className="text-2xl font-black italic uppercase text-white mb-8 tracking-tighter">Register New Battleground</h2>
+              <h2 className="text-2xl font-black italic uppercase text-white mb-8 tracking-tighter">Register New Game</h2>
               <div className="flex gap-6">
                 <input type="text" value={newGameName} onChange={(e) => setNewGameName(e.target.value)} placeholder="Game Name (e.g. Valorant)" className="flex-1 bg-[#0b0e14] border-2 border-gray-800 p-5 rounded-2xl text-lg outline-none focus:border-purple-500 transition-all font-black uppercase" />
                 <button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white px-12 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all">Add</button>
@@ -336,7 +336,7 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                       <div className="md:col-span-2">
                         <label className="block text-[10px] font-black text-gray-600 mb-3 uppercase tracking-widest">Tournament Name</label>
-                        <input type="text" value={formData.title} onChange={(e) => handleFormChange("title", e.target.value)} placeholder="e.g. RASDA TOURNAMENT 3.0" className="w-full bg-[#0b0e14] border-2 border-gray-800 p-6 rounded-3xl text-white text-xl outline-none focus:border-purple-500 transition-all font-black uppercase" />
+                        <input type="text" value={formData.title} onChange={(e) => handleFormChange("title", e.target.value)} placeholder="e.g. S-RANK TOURNAMENT 3.0" className="w-full bg-[#0b0e14] border-2 border-gray-800 p-6 rounded-3xl text-white text-xl outline-none focus:border-purple-500 transition-all font-black uppercase" />
                       </div>
                       <div>
                         <label className="block text-[10px] font-black text-gray-600 mb-3 uppercase tracking-widest">Game</label>
@@ -375,7 +375,7 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-gray-600 mb-3 uppercase tracking-widest">Prizes</label>
-                      <textarea value={formData.prizes} onChange={(e) => handleFormChange("prizes", e.target.value)} className="w-full bg-[#0b0e14] border-2 border-gray-800 p-5 rounded-3xl text-white min-h-[120px] outline-none focus:border-purple-500" placeholder="e.g. PRIZES: 200€ / MVP PRIZE 25€"></textarea>
+                      <textarea value={formData.prizes} onChange={(e) => handleFormChange("prizes", e.target.value)} className="w-full bg-[#0b0e14] border-2 border-gray-800 p-5 rounded-3xl text-white min-h-[120px] outline-none focus:border-purple-500" placeholder="e.g. PRIZES: $200 / MVP PRIZE $25"></textarea>
                     </div>
                   </div>
                 )}
@@ -448,7 +448,7 @@ export default function AdminDashboard() {
                     : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/40'}`}
                 >
                   {isPublishing ? (
-                    <span className="animate-pulse">DEPLOYING OPERATION...</span>
+                    <span className="animate-pulse">SAVING CHANGES...</span>
                   ) : currentStep === 3 ? (
                     <>{editingId ? 'UPDATE TOURNAMENT' : 'PUBLISH TOURNAMENT'} <Trophy /></>
                   ) : (
@@ -469,7 +469,7 @@ export default function AdminDashboard() {
 
             {/* LISTA DE OPERACIONES (REDISEÑADA TIPO TARJETA) */}
             <div className="lg:col-span-4 space-y-6">
-                <h3 className="text-[11px] font-black uppercase text-gray-600 tracking-[0.5em] italic ml-4 text-center lg:text-left">Live Operations</h3>
+                <h3 className="text-[11px] font-black uppercase text-gray-600 tracking-[0.5em] italic ml-4 text-center lg:text-left">Live Tournaments</h3>
                 
                 <div className="grid grid-cols-1 gap-6">
                   {tournaments.map(t => (
@@ -495,7 +495,7 @@ export default function AdminDashboard() {
                            <div className="flex justify-between items-center text-sm font-bold text-gray-300">
                              <div className="flex items-center gap-2"><CalendarIcon /> {t.start_date ? new Date(t.start_date).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}) : "TBA"}</div>
                              <div className="flex items-center gap-2">
-                               <ClockIcon /> {t.start_time || "TBA"} -05
+                               <ClockIcon /> {t.start_time || "TBA"}
                                <span className="ml-2 bg-indigo-500 text-white px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest">Live</span>
                              </div>
                            </div>
@@ -513,7 +513,7 @@ export default function AdminDashboard() {
                          </div>
                        </div>
                        
-                       {/* CONTROLES DE ADMIN (TOTALMENTE AISLADOS DEL CLIC DE LA TARJETA) */}
+                       {/* CONTROLES DE ADMIN */}
                        <div className="px-5 py-4 border-t border-[#2a2f4c] bg-[#1a1d36] flex justify-end gap-3 z-20">
                          <button 
                            onClick={() => startEditing(t)} 
