@@ -6,6 +6,7 @@ import { supabase } from "../../../lib/supabase";
 import { useRouter } from "next/navigation";
 import { Tournament, TournamentMatch, UserProfile } from "../../../types";
 import { Bracket, Seed, SeedItem } from "react-brackets";
+import Modal from "../../../components/Modal";
 
 // ==========================================
 // ICONOS SVG NATIVOS
@@ -48,6 +49,9 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   
   // ESTADO NUEVO PARA EL MODO FRANCOTIRADOR
   const [manualMatchId, setManualMatchId] = useState("");
+
+  // ESTADO DEL MODAL DE CONFIRMACIÓN
+  const [modal, setModal] = useState<{isOpen: boolean, title: string, message: string, type: 'alert' | 'confirm', onConfirm?: () => void}>({isOpen: false, title: '', message: '', type: 'alert'});
 
   const processUserSession = async (userId: string, participantsList: any[]) => {
     const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).single();
@@ -252,14 +256,20 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
 
   const handleUnregister = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert("No estás autenticado.");
+    if (!user) return setModal({isOpen: true, title: 'Error', message: 'No estás autenticado.', type: 'alert'});
     
-    if (!confirm("¿Estás seguro que deseas abandonar la misión?")) return;
-    setIsRegistering(true);
-    const { error } = await supabase.from("tournament_participants").delete().eq("tournament_id", tournamentId).eq("user_id", user.id);
-    if (error) alert("Hubo un error al intentar retirarte del torneo.");
-    else { alert("Te has retirado de la misión."); setIsRegistered(false); refreshBracket(); }
-    setIsRegistering(false);
+    setModal({isOpen: true, title: '¿Abandonar Misión?', message: '¿Estás seguro que deseas abandonar la misión?', type: 'confirm', onConfirm: async () => {
+      setIsRegistering(true);
+      const { error } = await supabase.from("tournament_participants").delete().eq("tournament_id", tournamentId).eq("user_id", user.id);
+      if (error) {
+        setModal({isOpen: true, title: 'Error', message: 'Hubo un error al intentar retirarte del torneo.', type: 'alert'});
+      } else {
+        setModal({isOpen: true, title: 'Éxito', message: 'Te has retirado de la misión.', type: 'alert'});
+        setIsRegistered(false);
+        refreshBracket();
+      }
+      setIsRegistering(false);
+    }});
   };
 
   // ==========================================
@@ -267,61 +277,65 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
   // ==========================================
   const generateBracket = async () => {
     if (!isAdmin || isGenerating) return;
-    if (participants.length < 2) return alert("Se necesitan al menos 2 Hunters para inicializar el mapa.");
-    if (!confirm("Esto sobrescribirá el mapa táctico completo y reordenará los enfrentamientos. ¿Proceder?")) return;
+    if (participants.length < 2) return setModal({isOpen: true, title: 'Participantes Insuficientes', message: 'Se necesitan al menos 2 Hunters para inicializar el mapa.', type: 'alert'});
     
-    setIsGenerating(true);
-    await supabase.from("tournament_matches").delete().eq("tournament_id", tournamentId);
+    setModal({isOpen: true, title: 'Inicializar Mapa Táctico', message: 'Esto sobrescribirá el mapa táctico completo y reordenará los enfrentamientos. ¿Proceder?', type: 'confirm', onConfirm: async () => {
+      setIsGenerating(true);
+      await supabase.from("tournament_matches").delete().eq("tournament_id", tournamentId);
 
-    const num = participants.length;
-    const p2 = Math.pow(2, Math.ceil(Math.log2(num || 1)));
-    const totalRounds = Math.log2(p2);
-    let newMatches: any[] = [];
-    let shuffled = [...participants].sort(() => Math.random() - 0.5);
-    
-    for (let r = 1; r <= totalRounds; r++) {
-        const matchesInRound = p2 / Math.pow(2, r);
-        for (let m = 1; m <= matchesInRound; m++) {
-            newMatches.push({ tournament_id: tournamentId, round_number: r, match_number: m, player1_id: null, player2_id: null, winner_id: null, status: "pending", player1_score: 0, player2_score: 0 });
-        }
-    }
-    
-    const r1Matches = newMatches.filter(m => m.round_number === 1);
-    for(let i = 0; i < p2; i++) {
-         const matchIdx = Math.floor(i / 2);
-         const isP1 = i % 2 === 0;
-         const player = shuffled[i] ? shuffled[i].user_id : null;
-         if (isP1) r1Matches[matchIdx].player1_id = player;
-         else r1Matches[matchIdx].player2_id = player;
-    }
-    
-    r1Matches.forEach(m => {
-        if (m.player1_id && !m.player2_id) { m.winner_id = m.player1_id; m.status = "finished"; }
-        else if (!m.player1_id && m.player2_id) { m.winner_id = m.player2_id; m.status = "finished"; }
-        else if (!m.player1_id && !m.player2_id) { m.status = "finished"; }
-    });
-    
-    newMatches.filter(x => x.round_number === 1 && x.status === "finished" && x.winner_id).forEach(match => {
-        const nextRound = 2; const nextMatchNum = Math.ceil(match.match_number / 2); const isP1 = match.match_number % 2 !== 0;
-        const nextMatch = newMatches.find(x => x.round_number === nextRound && x.match_number === nextMatchNum);
-        if (nextMatch) {
-            if (isP1) nextMatch.player1_id = match.winner_id;
-            else nextMatch.player2_id = match.winner_id;
-        }
-    });
+      const num = participants.length;
+      const p2 = Math.pow(2, Math.ceil(Math.log2(num || 1)));
+      const totalRounds = Math.log2(p2);
+      let newMatches: any[] = [];
+      let shuffled = [...participants].sort(() => Math.random() - 0.5);
+      
+      for (let r = 1; r <= totalRounds; r++) {
+          const matchesInRound = p2 / Math.pow(2, r);
+          for (let m = 1; m <= matchesInRound; m++) {
+              newMatches.push({ tournament_id: tournamentId, round_number: r, match_number: m, player1_id: null, player2_id: null, winner_id: null, status: "pending", player1_score: 0, player2_score: 0 });
+          }
+      }
+      
+      const r1Matches = newMatches.filter(m => m.round_number === 1);
+      for(let i = 0; i < p2; i++) {
+           const matchIdx = Math.floor(i / 2);
+           const isP1 = i % 2 === 0;
+           const player = shuffled[i] ? shuffled[i].user_id : null;
+           if (isP1) r1Matches[matchIdx].player1_id = player;
+           else r1Matches[matchIdx].player2_id = player;
+      }
+      
+      r1Matches.forEach(m => {
+          if (m.player1_id && !m.player2_id) { m.winner_id = m.player1_id; m.status = "finished"; }
+          else if (!m.player1_id && m.player2_id) { m.winner_id = m.player2_id; m.status = "finished"; }
+          else if (!m.player1_id && !m.player2_id) { m.status = "finished"; }
+      });
+      
+      newMatches.filter(x => x.round_number === 1 && x.status === "finished" && x.winner_id).forEach(match => {
+          const nextRound = 2; const nextMatchNum = Math.ceil(match.match_number / 2); const isP1 = match.match_number % 2 !== 0;
+          const nextMatch = newMatches.find(x => x.round_number === nextRound && x.match_number === nextMatchNum);
+          if (nextMatch) {
+              if (isP1) nextMatch.player1_id = match.winner_id;
+              else nextMatch.player2_id = match.winner_id;
+          }
+      });
 
-    await supabase.from("tournament_matches").insert(newMatches);
-    refreshBracket();
-    setIsGenerating(false);
+      await supabase.from("tournament_matches").insert(newMatches);
+      refreshBracket();
+      setIsGenerating(false);
+      setModal({isOpen: false, title: '', message: '', type: 'alert'});
+    }});
   };
 
   const purgeBracket = async () => {
     if (!isAdmin || isGenerating) return;
-    if (!confirm("⚠️ ¿Estás COMPLETAMENTE seguro que deseas PURGAR el mapa táctico? Esto borrará TODOS los scores y enfrentamientos generados.")) return;
-    setIsGenerating(true);
-    await supabase.from("tournament_matches").delete().eq("tournament_id", tournamentId);
-    refreshBracket();
-    setIsGenerating(false);
+    setModal({isOpen: true, title: '⚠️ PURGA DEL MAPA', message: '¿Estás COMPLETAMENTE seguro que deseas PURGAR el mapa táctico? Esto borrará TODOS los scores y enfrentamientos generados.', type: 'confirm', onConfirm: async () => {
+      setIsGenerating(true);
+      await supabase.from("tournament_matches").delete().eq("tournament_id", tournamentId);
+      refreshBracket();
+      setIsGenerating(false);
+      setModal({isOpen: false, title: '', message: '', type: 'alert'});
+    }});
   };
 
   const handleSaveScore = async () => {
@@ -839,6 +853,19 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
           </div>
         )}
       </main>
+
+      {/* MODAL DE CONFIRMACIÓN */}
+      <Modal
+        isOpen={modal.isOpen}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onClose={() => setModal({isOpen: false, title: '', message: '', type: 'alert'})}
+        onConfirm={() => {
+          if (modal.onConfirm) modal.onConfirm();
+          setModal({isOpen: false, title: '', message: '', type: 'alert'});
+        }}
+      />
     </>
   );
 }

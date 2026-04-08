@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
 import { UserProfile, Tournament } from "../../types";
+import Modal from "../../components/Modal";
 
 // Iconos SVG Nativos
 const Globe = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
@@ -33,6 +34,7 @@ export default function AdminDashboard() {
   
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newGameName, setNewGameName] = useState("");
+  const [modal, setModal] = useState<{isOpen: boolean, title: string, message: string, type: 'alert' | 'confirm', onConfirm?: () => void}>({isOpen: false, title: '', message: '', type: 'alert'});
 
   const initialFormData = {
     title: "",
@@ -172,18 +174,23 @@ export default function AdminDashboard() {
   };
 
   const deleteTournament = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this tournament? This action cannot be undone.")) return;
-    await supabase.from("tournaments").delete().eq("id", id);
-    loadData();
+    setModal({isOpen: true, title: 'Eliminar Torneo', message: '¿Estás seguro que quieres eliminar este torneo? Esta acción no se puede deshacer.', type: 'confirm', onConfirm: async () => {
+      await supabase.from("tournaments").delete().eq("id", id);
+      loadData();
+      setModal({isOpen: false, title: '', message: '', type: 'alert'});
+    }});
   };
 
   const purgeDummies = async () => {
     const ids = users.filter(u => u.is_dummy).map(u => u.id);
-    if (ids.length === 0 || !confirm(`Purge ${ids.length} dummies?`)) return;
-    setLoading(true);
-    await supabase.from("tournament_participants").delete().in("user_id", ids);
-    await supabase.from("profiles").delete().in("id", ids);
-    loadData();
+    if (ids.length === 0) return;
+    setModal({isOpen: true, title: 'Purgar Dummies', message: `¿Estás seguro que quieres eliminar ${ids.length} dummies?`, type: 'confirm', onConfirm: async () => {
+      setLoading(true);
+      await supabase.from("tournament_participants").delete().in("user_id", ids);
+      await supabase.from("profiles").delete().in("id", ids);
+      loadData();
+      setModal({isOpen: false, title: '', message: '', type: 'alert'});
+    }});
   };
 
   const createDummy = async () => {
@@ -193,8 +200,11 @@ export default function AdminDashboard() {
   };
 
   const deleteUser = async (userId: string) => {
-    if (!confirm("Delete user?")) return;
-    await supabase.from("profiles").delete().eq("id", userId); loadData();
+    setModal({isOpen: true, title: 'Eliminar Usuario', message: '¿Estás seguro que quieres eliminar este usuario?', type: 'confirm', onConfirm: async () => {
+      await supabase.from("profiles").delete().eq("id", userId);
+      loadData();
+      setModal({isOpen: false, title: '', message: '', type: 'alert'});
+    }});
   };
 
   const addGame = async (e: React.FormEvent) => {
@@ -207,7 +217,8 @@ export default function AdminDashboard() {
   if (loading) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-purple-500 font-black italic tracking-widest animate-pulse">INITIATING TERMINAL...</div>;
 
   return (
-    <main className="min-h-screen bg-[#0b0e14] text-gray-200 p-4 md:p-8 font-sans">
+    <>
+      <main className="min-h-screen bg-[#0b0e14] text-gray-200 p-4 md:p-8 font-sans">
       <div className="max-w-[1900px] mx-auto">
         <header className="flex flex-col md:flex-row md:items-center justify-between mb-16 gap-8 border-b border-gray-800 pb-10">
           <div>
@@ -525,6 +536,20 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
-    </main>
+      </main>
+
+      {/* MODAL DE CONFIRMACIÓN */}
+      <Modal
+        isOpen={modal.isOpen}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onClose={() => setModal({isOpen: false, title: '', message: '', type: 'alert'})}
+        onConfirm={() => {
+          if (modal.onConfirm) modal.onConfirm();
+          setModal({isOpen: false, title: '', message: '', type: 'alert'});
+        }}
+      />
+    </>
   );
 }
