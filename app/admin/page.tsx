@@ -123,11 +123,11 @@ export default function AdminDashboard() {
       
       cancelEdit(); 
       await loadData(); 
-      alert(editingId ? "TOURNAMENT UPDATED SUCCESSFULLY" : "TOURNAMENT PUBLISHED SUCCESSFULLY");
+      setModal({isOpen: true, title: '✅ Éxito', message: editingId ? 'TOURNAMENT UPDATED SUCCESSFULLY' : 'TOURNAMENT PUBLISHED SUCCESSFULLY', type: 'alert'});
 
     } catch (error: any) {
       console.error("DB Error:", error);
-      alert(`DATABASE ERROR: ${error.message}`);
+      setModal({isOpen: true, title: 'Error de Base de Datos', message: `DATABASE ERROR: ${error.message}`, type: 'alert'});
     } finally {
       setIsPublishing(false);
     }

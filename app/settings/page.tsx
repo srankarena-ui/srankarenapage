@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Modal from "../../components/Modal";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -20,6 +21,9 @@ export default function SettingsPage() {
   const [crTag, setCrTag] = useState("");
   const [crName, setCrName] = useState("");
   const [updatingCR, setUpdatingCR] = useState(false);
+
+  // Estado del Modal
+  const [modal, setModal] = useState<{isOpen: boolean, title: string, message: string, type: 'alert' | 'confirm'}>({isOpen: false, title: '', message: '', type: 'alert'});
 
   useEffect(() => {
     async function load() {
@@ -67,10 +71,10 @@ export default function SettingsPage() {
 
       if (dbError) throw dbError;
 
-      alert("Cuenta de Riot vinculada con éxito.");
-      window.location.reload();
+      setModal({isOpen: true, title: '✅ Éxito', message: 'Cuenta de Riot vinculada con éxito.', type: 'alert'});
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
-      alert(err.message);
+      setModal({isOpen: true, title: 'Error', message: err.message, type: 'alert'});
     } finally {
       setUpdating(false);
     }
@@ -99,10 +103,10 @@ export default function SettingsPage() {
 
       if (dbError) throw dbError;
 
-      alert("¡Cuenta de Clash Royale vinculada con éxito!");
-      window.location.reload();
+      setModal({isOpen: true, title: '✅ Éxito', message: '¡Cuenta de Clash Royale vinculada con éxito!', type: 'alert'});
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
-      alert(err.message);
+      setModal({isOpen: true, title: 'Error', message: err.message, type: 'alert'});
     } finally {
       setUpdatingCR(false);
     }
@@ -111,7 +115,8 @@ export default function SettingsPage() {
   if (loading) return <div className="min-h-screen bg-[#0b0e14]"></div>;
 
   return (
-    <main className="min-h-screen bg-[#0b0e14] text-gray-200 p-8 font-sans pb-32">
+    <>
+      <main className="min-h-screen bg-[#0b0e14] text-gray-200 p-8 font-sans pb-32">
       <div className="max-w-2xl mx-auto">
         <header className="mb-12">
           <Link href={`/profile/${profile.username}`} className="text-[10px] font-black uppercase text-gray-600 hover:text-white transition-all tracking-[0.2em]">&larr; Volver al Perfil</Link>
@@ -218,5 +223,15 @@ export default function SettingsPage() {
 
       </div>
     </main>
+
+    {/* MODAL DE NOTIFICACIONES */}
+    <Modal
+      isOpen={modal.isOpen}
+      title={modal.title}
+      message={modal.message}
+      type={modal.type}
+      onClose={() => setModal({isOpen: false, title: '', message: '', type: 'alert'})}
+    />
+    </>
   );
 }

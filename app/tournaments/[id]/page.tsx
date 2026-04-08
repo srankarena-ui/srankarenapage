@@ -195,7 +195,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (!session) {
-        alert("🔍 [DEBUG]: Supabase detecta que NO hay sesión activa en este navegador. Por favor, vuelve a iniciar sesión e inténtalo de nuevo.");
+        setModal({isOpen: true, title: 'Error de Sesión', message: '🔍 [DEBUG]: Supabase detecta que NO hay sesión activa en este navegador. Por favor, vuelve a iniciar sesión e inténtalo de nuevo.', type: 'alert'});
         setIsRegistering(false);
         return;
       }
@@ -203,7 +203,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (!user) {
-        alert("🔍 [DEBUG]: Hay sesión, pero no se pudo obtener el User ID de Supabase.");
+        setModal({isOpen: true, title: 'Error de Usuario', message: '🔍 [DEBUG]: Hay sesión, pero no se pudo obtener el User ID de Supabase.', type: 'alert'});
         setIsRegistering(false);
         return;
       }
@@ -215,19 +215,19 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         .single();
 
       if (profileError || !profileData) {
-        alert(`🔍 [DEBUG]: Error al buscar tu perfil en la base de datos. Detalle: ${profileError?.message}`);
+        setModal({isOpen: true, title: 'Error de Perfil', message: `🔍 [DEBUG]: Error al buscar tu perfil en la base de datos. Detalle: ${profileError?.message}`, type: 'alert'});
         setIsRegistering(false);
         return;
       }
 
       if (tournament.game === "League of Legends" && !profileData.riot_puuid) {
-         alert("¡Alto ahí, Hunter! 🛑\n\nEste torneo es de League of Legends. Necesitas vincular tu cuenta de Riot en tu perfil para poder entrar a la Arena.");
+         setModal({isOpen: true, title: '¡Alto ahí, Hunter! 🛑', message: 'Este torneo es de League of Legends. Necesitas vincular tu cuenta de Riot en tu perfil para poder entrar a la Arena.', type: 'alert'});
          setIsRegistering(false);
          return;
       }
 
       if (tournament.game === "Clash Royale" && !profileData.cr_tag) {
-         alert("¡Alto ahí, Hunter! 🛑\n\nEste torneo es de Clash Royale. Necesitas vincular tu Tag de Supercell en tu perfil para poder entrar a la Arena.");
+         setModal({isOpen: true, title: '¡Alto ahí, Hunter! 🛑', message: 'Este torneo es de Clash Royale. Necesitas vincular tu Tag de Supercell en tu perfil para poder entrar a la Arena.', type: 'alert'});
          setIsRegistering(false);
          return;
       }
@@ -238,18 +238,18 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
 
       if (error) {
         if (error.code === '23505') { 
-            alert("Ya estás inscrito en esta misión.");
+            setModal({isOpen: true, title: 'Ya Registrado', message: 'Ya estás inscrito en esta misión.', type: 'alert'});
         } else {
-            alert(`🔍 [DEBUG] Error al intentar guardar en la base de datos: ${error.message}`);
+            setModal({isOpen: true, title: 'Error de Base de Datos', message: `🔍 [DEBUG] Error al intentar guardar en la base de datos: ${error.message}`, type: 'alert'});
         }
       } else {
-        alert("¡Registro Exitoso! Bienvenido a la misión.");
+        setModal({isOpen: true, title: '¡Éxito!', message: '¡Registro Exitoso! Bienvenido a la misión.', type: 'alert'});
         setIsRegistered(true);
         refreshBracket();
       }
 
     } catch (err: any) {
-        alert(`🔍 [DEBUG] Error Inesperado del sistema: ${err.message}`);
+        setModal({isOpen: true, title: 'Error Inesperado', message: `🔍 [DEBUG] Error Inesperado del sistema: ${err.message}`, type: 'alert'});
     }
     setIsRegistering(false);
   };
@@ -365,7 +365,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         if (nextMatch) await supabase.from("tournament_matches").update(isNextP1 ? { player1_id: winnerId } : { player2_id: winnerId }).eq("id", nextMatch.id);
       }
       setScoreModal(null); await refreshBracket();
-    } catch (err) { alert("Error al guardar score."); }
+    } catch (err) { setModal({isOpen: true, title: 'Error', message: 'Error al guardar score.', type: 'alert'}); }
   };
 
   const forceWinner = async (matchId: string, winnerId: string) => {
@@ -379,7 +379,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       
       await supabase.from("tournament_matches").update({ winner_id: winnerId, status: "finished" }).eq("id", matchId);
       setSelectedMatch(null); await refreshBracket();
-    } catch (err) { alert("Error al forzar ganador."); }
+    } catch (err) { setModal({isOpen: true, title: 'Error', message: 'Error al forzar ganador.', type: 'alert'}); }
   };
 
   const swapPlayer = async (matchId: string, side: 1 | 2, newPlayerId: string) => {
@@ -416,12 +416,12 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
         if (data.debug_log && data.debug_log.length > 0) {
             errorMsg += `\n\n🔍 REPORTE DE RAYOS X:\n${data.debug_log.join('\n')}`;
         }
-        alert(errorMsg);
+        setModal({isOpen: true, title: 'Escáner Falló', message: errorMsg, type: 'alert'});
         setIsScanning(null);
         return;
       }
 
-      alert(`✅ ¡Transmisión Encontrada! \nGanador detectado: ${data.winner_id === match.player1_id ? 'Hunter 1' : 'Hunter 2'}\n\nAbre el panel de score para confirmar la victoria.`);
+      setModal({isOpen: true, title: '✅ ¡Transmisión Encontrada!', message: `Ganador detectado: ${data.winner_id === match.player1_id ? 'Hunter 1' : 'Hunter 2'}\n\nAbre el panel de score para confirmar la victoria.`, type: 'alert'});
       
       const newP1Score = data.winner_id === match.player1_id ? (match.player1_score || 0) + 1 : (match.player1_score || 0);
       const newP2Score = data.winner_id === match.player2_id ? (match.player2_score || 0) + 1 : (match.player2_score || 0);
@@ -430,7 +430,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
       setSelectedMatch(null); 
 
     } catch (err) {
-      alert("Error de uplink con el escáner táctico.");
+      setModal({isOpen: true, title: 'Error', message: 'Error de uplink con el escáner táctico.', type: 'alert'});
     }
     setIsScanning(null);
   };
@@ -807,7 +807,7 @@ export default function TournamentBracketPage({ params }: { params: Promise<{ id
                 
                 {isAdmin && (
                   <div className="flex flex-wrap items-center gap-3.5 bg-gray-950 p-5 rounded-[2rem] border border-gray-800 shadow-xl shrink-0">
-                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert("Operational Link Copied!"); }} className="flex items-center gap-2 bg-gray-900 text-gray-400 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all border border-gray-700">
+                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); setModal({isOpen: true, title: '✅ Copiado', message: '¡Link operacional copiado al portapapeles!', type: 'alert'}); }} className="flex items-center gap-2 bg-gray-900 text-gray-400 px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all border border-gray-700">
                       <LinkIcon /> Share Link
                     </button>
                     
