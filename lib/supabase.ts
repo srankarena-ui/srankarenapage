@@ -1,13 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Para Next.js App Router, debemos usar createBrowserClient en el lado del cliente
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,      // Mantiene la sesión en el localStorage
-    autoRefreshToken: true,    // Refresca el token en segundo plano antes de que expire
-    detectSessionInUrl: true,  // Crítico para que Google/Discord funcionen al volver a la web
-    storageKey: 's-rank-auth-token', // Llave personalizada para evitar conflictos
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: 's-rank-auth-token',
   }
 });
