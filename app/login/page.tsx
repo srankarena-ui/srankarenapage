@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-// Importamos directamente el cliente de supabase que arreglamos
 import { supabase } from "../../lib/supabase"; 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -47,19 +46,30 @@ export default function LoginPage() {
       if (error) {
         setError(error.message);
       } else {
-        // Usamos window.location para forzar un refresco y que la página lea la nueva sesión
         window.location.href = "/"; 
       }
     } else {
-      const { error } = await supabase.auth.signUp({
+      // RASTREADOR: Verificamos qué se envía
+      console.log("Intentando crear Hunter con:", email, username);
+      
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { username: username } },
       });
       
-      if (error) setError(error.message);
-      else {
-        setModal({isOpen: true, title: 'Éxito', message: '¡Despertar completado! Revisa tu email para confirmar.', type: 'alert'});
+      // RASTREADOR: Vemos qué responde exactamente Supabase
+      console.log("Respuesta de Supabase:", data, error);
+      
+      if (error) {
+        setError(error.message);
+      } else {
+        setModal({
+          isOpen: true, 
+          title: 'Éxito', 
+          message: '¡Despertar completado! Bienvenido a la Arena.', 
+          type: 'alert'
+        });
       }
     }
     setLoading(false);
@@ -124,12 +134,16 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-8 text-center">
-          <button onClick={() => { setIsLogin(!isLogin); setError(null); }} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-purple-400 transition-colors">
+          <button type="button" onClick={() => { setIsLogin(!isLogin); setError(null); }} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-purple-400 transition-colors">
             {isLogin ? "¿No tienes licencia? Regístrate" : "¿Ya eres un Hunter? Login"}
           </button>
         </div>
       </div>
-      <Modal isOpen={modal.isOpen} title={modal.title} message={modal.message} onClose={() => setModal({...modal, isOpen: false})} type={modal.type} />
+      <Modal isOpen={modal.isOpen} title={modal.title} message={modal.message} onClose={() => {
+        setModal({...modal, isOpen: false});
+        // Si el login fue exitoso y cerramos el modal, vamos al inicio
+        if (modal.title === 'Éxito') window.location.href = "/";
+      }} type={modal.type} />
     </main>
   );
 }
