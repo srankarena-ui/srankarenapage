@@ -43,8 +43,8 @@ export default function LoginPage() {
       } else {
         setModal({
           isOpen: true, 
-          title: 'Éxito', 
-          message: '¡Despertar completado! Bienvenido a la Arena.', 
+          title: 'Success', 
+          message: 'Sign Up completed! Welcome to the Arena.', 
           type: 'alert'
         });
       }
@@ -61,7 +61,7 @@ export default function LoginPage() {
           <Link href="/" className="text-2xl font-black text-purple-500 tracking-wider">
             S-RANK ARENA
           </Link>
-          <p className="text-[10px] text-gray-500 uppercase font-black tracking-[0.3em] mt-2">Terminal de Autenticación</p>
+          <p className="text-[10px] text-gray-500 uppercase font-black tracking-[0.3em] mt-2">Authentication Portal</p>
         </div>
 
         {error && (
@@ -73,14 +73,14 @@ export default function LoginPage() {
         <form onSubmit={handleAuth} className="space-y-4">
           {!isLogin && (
             <div>
-              <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Alias del Hunter</label>
-              <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-all" placeholder="SungJinWoo" />
+              <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Player Alias</label>
+              <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-all" placeholder="Username" />
             </div>
           )}
 
           <div>
-            <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Email Seguro</label>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-all" placeholder="hunter@gremio.com" />
+            <label className="block text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Secure Email</label>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 transition-all" placeholder="player@example.com" />
           </div>
 
           <div>
