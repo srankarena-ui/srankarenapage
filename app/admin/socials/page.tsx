@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase"; // Adjust this route if necessary
+import { supabase } from "../../../lib/supabase"; 
 
 export default function AdminSocials() {
   const [socials, setSocials] = useState<any[]>([]);
